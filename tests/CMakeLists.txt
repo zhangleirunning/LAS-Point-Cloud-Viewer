@@ -8,7 +8,7 @@ add_executable(las_viewer_tests
 target_link_libraries(las_viewer_tests
     PRIVATE
     las_viewer_lib
-    Catch2::Catch2
+    Catch2::Catch2WithMain
     rapidcheck
 )
 
