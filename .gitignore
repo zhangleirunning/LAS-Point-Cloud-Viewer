@@ -1,0 +1,73 @@
+# Build directories
+build/
+cmake-build-*/
+dist/
+out/
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.wasm
+*.js.mem
+
+# Emscripten output
+*.wasm.map
+*.js.map
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test output
+Testing/
+*.log
+
+# Node modules (if using npm for dev server)
+node_modules/
+package-lock.json
+
+# Python (if using Python for dev server)
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Test data (large LAS files)
+*.las
+*.laz
+test_data/*.las
+test_data/*.laz
+# Keep small sample files if needed
+!test_data/sample_small.las
+
+# Coverage reports
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Profiling data
+*.prof
+perf.data*
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
