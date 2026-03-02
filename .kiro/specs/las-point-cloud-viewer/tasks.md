@@ -38,19 +38,19 @@ The project structure and build system are complete. The next phase is implement
     - Support LAS point format 2 (RGB)
     - _Requirements: 1.2, 1.3_
 
-  - [ ]* 2.4 Write property test for coordinate transformation
+  - [x] 2.4 Write property test for coordinate transformation
     - **Property 3: Coordinate Transformation Correctness**
     - **Validates: Requirements 1.3**
 
-  - [ ]* 2.5 Write property test for header parsing
+  - [x] 2.5 Write property test for header parsing
     - **Property 1: LAS Header Parsing Round-Trip**
     - **Validates: Requirements 1.1**
 
-  - [ ]* 2.6 Write property test for point extraction
+  - [x] 2.6 Write property test for point extraction
     - **Property 2: Point Data Extraction Completeness**
     - **Validates: Requirements 1.2, 1.4**
 
-  - [ ]* 2.7 Write unit tests for error handling
+  - [x] 2.7 Write unit tests for error handling
     - Test invalid magic bytes
     - Test truncated files
     - Test corrupted headers
