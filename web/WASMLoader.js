@@ -20,6 +20,7 @@ export async function loadWASM() {
         const wasmModule = await createLASViewerModule();
         
         console.log('WASM runtime initialized');
+        console.log('Module exports:', Object.keys(wasmModule).filter(k => !k.startsWith('_')).slice(0, 20));
         
         // Create wrapper object with typed functions
         const wrapper = createWASMWrapper(wasmModule);
@@ -39,6 +40,11 @@ export async function loadWASM() {
  * @returns {Object} Wrapper with typed functions
  */
 function createWASMWrapper(module) {
+    // Helper to get typed array views of WASM memory
+    const getHeapView = (TypedArray) => {
+        return new TypedArray(module.wasmMemory?.buffer || module.HEAP8?.buffer);
+    };
+    
     return {
         // Raw module reference
         _module: module,
@@ -47,15 +53,15 @@ function createWASMWrapper(module) {
         malloc: (size) => module._malloc(size),
         free: (ptr) => module._free(ptr),
         
-        // Memory views
-        HEAP8: module.HEAP8,
-        HEAPU8: module.HEAPU8,
-        HEAP16: module.HEAP16,
-        HEAPU16: module.HEAPU16,
-        HEAP32: module.HEAP32,
-        HEAPU32: module.HEAPU32,
-        HEAPF32: module.HEAPF32,
-        HEAPF64: module.HEAPF64,
+        // Memory views - create getters that always return fresh views
+        get HEAP8() { return getHeapView(Int8Array); },
+        get HEAPU8() { return getHeapView(Uint8Array); },
+        get HEAP16() { return getHeapView(Int16Array); },
+        get HEAPU16() { return getHeapView(Uint16Array); },
+        get HEAP32() { return getHeapView(Int32Array); },
+        get HEAPU32() { return getHeapView(Uint32Array); },
+        get HEAPF32() { return getHeapView(Float32Array); },
+        get HEAPF64() { return getHeapView(Float64Array); },
         
         /**
          * Load LAS file from memory buffer
