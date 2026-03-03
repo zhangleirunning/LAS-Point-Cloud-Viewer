@@ -43,12 +43,18 @@ else()
         GIT_TAG v3.5.0
     )
     
-    # RapidCheck
+    # RapidCheck - disable extras to avoid conflicts
     FetchContent_Declare(
         rapidcheck
         GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
         GIT_TAG master
     )
+    
+    # Disable RapidCheck extras to avoid Catch2 conflict
+    set(RC_ENABLE_CATCH OFF CACHE BOOL "Build Catch integration" FORCE)
+    set(RC_ENABLE_GTEST OFF CACHE BOOL "Build GTest integration" FORCE)
+    set(RC_ENABLE_GMOCK OFF CACHE BOOL "Build GMock integration" FORCE)
+    set(RC_ENABLE_BOOST_TEST OFF CACHE BOOL "Build Boost.Test integration" FORCE)
     
     FetchContent_MakeAvailable(Catch2 rapidcheck)
     

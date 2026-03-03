@@ -69,13 +69,14 @@ public:
         size_t size,
         const LASHeader& header
     );
-
-private:
+    
     // Apply coordinate scaling and offset transformations
+    // Made public for testing purposes
     void transformCoordinates(int32_t raw_x, int32_t raw_y, int32_t raw_z,
                              const LASHeader& header,
                              float& out_x, float& out_y, float& out_z);
-    
+
+private:
     // Parse point based on format type
     LASPoint parsePointRecord(const uint8_t* record, const LASHeader& header);
 };

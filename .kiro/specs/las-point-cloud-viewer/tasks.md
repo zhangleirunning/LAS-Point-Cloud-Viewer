@@ -90,34 +90,34 @@ The project structure and build system are complete. The next phase is implement
     - Test all points at same location
     - _Requirements: 12.5_
 
-- [ ] 4. Implement frustum culling and spatial queries (C++)
-  - [ ] 4.1 Create Frustum data structure
+- [x] 4. Implement frustum culling and spatial queries (C++)
+  - [x] 4.1 Create Frustum data structure
     - Define 6 planes (left, right, top, bottom, near, far)
     - Implement plane-point distance calculation
     - Implement frustum-box intersection test
     - _Requirements: 11.2_
 
-  - [ ] 4.2 Implement spatial query with frustum culling
+  - [x] 4.2 Implement spatial query with frustum culling
     - Recursive octree traversal
     - Test each node's bounding box against frustum
     - Collect point indices from visible leaf nodes
     - _Requirements: 3.2, 11.2_
 
-  - [ ] 4.3 Implement LOD (Level-of-Detail) selection
+  - [x] 4.3 Implement LOD (Level-of-Detail) selection
     - Calculate skip factor based on camera distance and node depth
     - Apply point sampling in distant nodes
     - Enforce maximum point budget per query
     - _Requirements: 4.1, 4.5_
 
-  - [ ]* 4.4 Write property test for spatial query correctness
+  - [x] 4.4 Write property test for spatial query correctness
     - **Property 8: Spatial Query Correctness**
     - **Validates: Requirements 3.2, 11.2**
 
-  - [ ]* 4.5 Write property test for LOD distance relationship
+  - [x] 4.5 Write property test for LOD distance relationship
     - **Property 10: LOD Distance Relationship**
     - **Validates: Requirements 4.1, 4.5**
 
-  - [ ]* 4.6 Write property test for frustum update consistency
+  - [x] 4.6 Write property test for frustum update consistency
     - **Property 11: Camera Frustum Update Consistency**
     - **Validates: Requirements 4.2, 6.5**
 
