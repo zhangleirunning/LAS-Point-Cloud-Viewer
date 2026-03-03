@@ -38,8 +38,8 @@ Result<LASHeader, std::string> LASParser::parseHeader(const uint8_t* data, size_
     header.version_major = data[24];
     header.version_minor = data[25];
     
-    // Validate version (support 1.2 and 1.4)
-    if (header.version_major != 1 || (header.version_minor != 2 && header.version_minor != 4)) {
+    // Validate version (support 1.2, 1.3, and 1.4)
+    if (header.version_major != 1 || (header.version_minor != 2 && header.version_minor != 3 && header.version_minor != 4)) {
         return Result<LASHeader, std::string>::Err(
             "Unsupported LAS version: " + std::to_string(header.version_major) + 
             "." + std::to_string(header.version_minor)
@@ -55,19 +55,29 @@ Result<LASHeader, std::string> LASParser::parseHeader(const uint8_t* data, size_
     // Read point data format (byte 104)
     header.point_format = data[104];
     
-    // Validate point format (we support format 2 - RGB)
-    if (header.point_format != 2) {
+    // Validate point format (we support formats 2, 3, and 6 - all have RGB)
+    if (header.point_format != 2 && header.point_format != 3 && header.point_format != 6) {
         return Result<LASHeader, std::string>::Err(
             "Unsupported point format: " + std::to_string(header.point_format) + 
-            " (only format 2 with RGB is supported)"
+            " (only formats 2, 3, and 6 with RGB are supported)"
         );
     }
     
     // Read point record length (bytes 105-106)
     header.point_record_length = readLittleEndian<uint16_t>(data + 105);
     
-    // Read number of point records (bytes 107-110 for LAS 1.2)
-    header.point_count = readLittleEndian<uint32_t>(data + 107);
+    // Read number of point records
+    // For LAS 1.4, if the legacy count is 0, use the extended count (bytes 247-254)
+    uint32_t legacy_point_count = readLittleEndian<uint32_t>(data + 107);
+    
+    if (header.version_minor == 4 && legacy_point_count == 0 && header_size >= 375) {
+        // LAS 1.4 with extended point count
+        uint64_t extended_count = readLittleEndian<uint64_t>(data + 247);
+        // Cap at uint32_t max for now (4 billion points)
+        header.point_count = (extended_count > 0xFFFFFFFF) ? 0xFFFFFFFF : static_cast<uint32_t>(extended_count);
+    } else {
+        header.point_count = legacy_point_count;
+    }
     
     // Read scale factors (bytes 131-154)
     header.scale_x = readDouble(data + 131);
@@ -103,7 +113,7 @@ void LASParser::transformCoordinates(int32_t raw_x, int32_t raw_y, int32_t raw_z
 LASPoint LASParser::parsePointRecord(const uint8_t* record, const LASHeader& header) {
     LASPoint point;
     
-    // Read raw XYZ coordinates (bytes 0-11, 32-bit integers)
+    // Read raw XYZ coordinates (bytes 0-11, 32-bit integers) - same for all formats
     int32_t raw_x = readLittleEndian<int32_t>(record + 0);
     int32_t raw_y = readLittleEndian<int32_t>(record + 4);
     int32_t raw_z = readLittleEndian<int32_t>(record + 8);
@@ -111,17 +121,44 @@ LASPoint LASParser::parsePointRecord(const uint8_t* record, const LASHeader& hea
     // Transform to world coordinates
     transformCoordinates(raw_x, raw_y, raw_z, header, point.x, point.y, point.z);
     
-    // Read intensity (bytes 12-13, 16-bit unsigned integer)
+    // Read intensity (bytes 12-13, 16-bit unsigned integer) - same for all formats
     point.intensity = readLittleEndian<uint16_t>(record + 12);
     
-    // Read classification (byte 15)
-    point.classification = record[15];
+    // Read classification - location varies by format
+    // Format 2: byte 15
+    // Format 3: byte 15  
+    // Format 6: byte 16 (LAS 1.4 uses different bit packing)
+    if (header.point_format == 6) {
+        point.classification = record[16];
+    } else {
+        point.classification = record[15];
+    }
     
-    // For point format 2, RGB values are at bytes 20-25 (16-bit values)
-    // We scale them down to 8-bit for storage
-    uint16_t r16 = readLittleEndian<uint16_t>(record + 20);
-    uint16_t g16 = readLittleEndian<uint16_t>(record + 22);
-    uint16_t b16 = readLittleEndian<uint16_t>(record + 24);
+    // RGB location varies by format:
+    // Format 2: bytes 20-25 (after X,Y,Z,intensity,return,class,angle,user,source)
+    // Format 3: bytes 28-33 (after format 1 fields + GPS time)
+    // Format 6: bytes 18-23 (LAS 1.4 compact format)
+    uint16_t r16, g16, b16;
+    
+    if (header.point_format == 2) {
+        // Format 2: RGB at bytes 20-25
+        r16 = readLittleEndian<uint16_t>(record + 20);
+        g16 = readLittleEndian<uint16_t>(record + 22);
+        b16 = readLittleEndian<uint16_t>(record + 24);
+    } else if (header.point_format == 3) {
+        // Format 3: GPS time (8 bytes) at 20-27, then RGB at 28-33
+        r16 = readLittleEndian<uint16_t>(record + 28);
+        g16 = readLittleEndian<uint16_t>(record + 30);
+        b16 = readLittleEndian<uint16_t>(record + 32);
+    } else if (header.point_format == 6) {
+        // Format 6: RGB at bytes 18-23 (LAS 1.4)
+        r16 = readLittleEndian<uint16_t>(record + 18);
+        g16 = readLittleEndian<uint16_t>(record + 20);
+        b16 = readLittleEndian<uint16_t>(record + 22);
+    } else {
+        // Fallback - shouldn't reach here due to validation
+        r16 = g16 = b16 = 0;
+    }
     
     // Scale from 16-bit to 8-bit
     point.r = static_cast<uint8_t>(r16 >> 8);

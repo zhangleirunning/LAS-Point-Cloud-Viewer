@@ -42,7 +42,7 @@ if(EMSCRIPTEN)
     
     # Link flags for WASM optimization
     set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\",\"_loadLASFile\",\"_getPointData\",\"_buildSpatialIndex\",\"_queryVisiblePoints\",\"_freeLASData\"]'")
-    set(LINK_FLAGS "${LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
+    set(LINK_FLAGS "${LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\",\"getValue\",\"setValue\",\"writeArrayToMemory\"]'")
     
     # Memory settings for large files (must be in link flags)
     set(LINK_FLAGS "${LINK_FLAGS} -s ALLOW_MEMORY_GROWTH=1")

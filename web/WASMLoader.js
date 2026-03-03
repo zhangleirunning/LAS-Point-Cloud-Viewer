@@ -20,7 +20,6 @@ export async function loadWASM() {
         const wasmModule = await createLASViewerModule();
         
         console.log('WASM runtime initialized');
-        console.log('Module exports:', Object.keys(wasmModule).filter(k => !k.startsWith('_')).slice(0, 20));
         
         // Create wrapper object with typed functions
         const wrapper = createWASMWrapper(wasmModule);
@@ -40,24 +39,59 @@ export async function loadWASM() {
  * @returns {Object} Wrapper with typed functions
  */
 function createWASMWrapper(module) {
-    // Helper to get typed array views of WASM memory
-    const getHeapView = (TypedArray) => {
-        // Emscripten stores the memory buffer in different places depending on version
-        // Try multiple access patterns
-        let buffer;
-        if (module.HEAP8 && module.HEAP8.buffer) {
-            buffer = module.HEAP8.buffer;
-        } else if (module.HEAPU8 && module.HEAPU8.buffer) {
-            buffer = module.HEAPU8.buffer;
-        } else if (module.wasmMemory && module.wasmMemory.buffer) {
-            buffer = module.wasmMemory.buffer;
-        } else if (module.memory && module.memory.buffer) {
-            buffer = module.memory.buffer;
-        } else {
-            console.error('Cannot find WASM memory buffer. Available module properties:', Object.keys(module).filter(k => !k.startsWith('_')).slice(0, 30));
-            throw new Error('Cannot access WASM memory buffer');
+    // Emscripten doesn't expose the memory buffer on the Module object
+    // But we can use a workaround: write to a known location and read it back
+    // to get access to the underlying buffer
+    
+    let memoryBuffer = null;
+    
+    const getMemoryBuffer = () => {
+        if (!memoryBuffer) {
+            // Allocate a small test buffer
+            const testPtr = module._malloc(8);
+            if (!testPtr) {
+                throw new Error('Failed to allocate test memory');
+            }
+            
+            // Use Emscripten's getValue/setValue if available
+            if (module.getValue && module.setValue) {
+                // We can use these functions, but we still need the buffer for bulk operations
+                // Try to access it through the internal _emscripten functions
+            }
+            
+            // The memory must exist if malloc succeeded
+            // Try using the internal asm object or exports
+            if (module.asm && module.asm.memory) {
+                memoryBuffer = module.asm.memory.buffer;
+                console.log('Found memory through module.asm.memory');
+            } else {
+                // Last resort: search through all enumerable and non-enumerable properties
+                const allKeys = Object.getOwnPropertyNames(module);
+                for (const key of allKeys) {
+                    try {
+                        const val = module[key];
+                        if (val instanceof WebAssembly.Memory) {
+                            memoryBuffer = val.buffer;
+                            console.log(`Found WebAssembly.Memory at module.${key}`);
+                            break;
+                        }
+                    } catch (e) {
+                        // Skip properties that throw on access
+                    }
+                }
+            }
+            
+            module._free(testPtr);
+            
+            if (!memoryBuffer) {
+                throw new Error('Cannot access WASM memory buffer - exhausted all access methods');
+            }
         }
-        return new TypedArray(buffer);
+        return memoryBuffer;
+    };
+    
+    const getHeapView = (TypedArray) => {
+        return new TypedArray(getMemoryBuffer());
     };
     
     return {
@@ -100,27 +134,13 @@ function createWASMWrapper(module) {
                 }
                 
                 console.log('Copying data to WASM memory...');
-                // Copy data to WASM memory in chunks to avoid blocking
-                const chunkSize = 10 * 1024 * 1024; // 10MB chunks
-                for (let offset = 0; offset < data.length; offset += chunkSize) {
-                    const end = Math.min(offset + chunkSize, data.length);
-                    const chunk = data.subarray(offset, end);
-                    const targetOffset = dataPtr + offset;
-                    
-                    // Get fresh heap view for each chunk (memory may have grown during malloc)
-                    // Use the wrapper's getter to access the current heap view
-                    const heap = this.HEAPU8;
-                    
-                    // Verify we have enough space
-                    if (targetOffset + chunk.length > heap.length) {
-                        this.free(dataPtr);
-                        throw new Error(`Memory out of bounds: trying to write ${chunk.length} bytes at offset ${targetOffset}, but heap size is ${heap.length}. Allocated pointer: ${dataPtr}, file size: ${data.length}`);
-                    }
-                    
-                    heap.set(chunk, targetOffset);
-                    
-                    if (offset % (50 * 1024 * 1024) === 0) {
-                        console.log(`Copied ${(offset / 1024 / 1024).toFixed(2)} MB / ${(data.length / 1024 / 1024).toFixed(2)} MB`);
+                // Use Emscripten's writeArrayToMemory function instead of direct heap access
+                if (module.writeArrayToMemory) {
+                    module.writeArrayToMemory(data, dataPtr);
+                } else {
+                    // Fallback: use setValue byte by byte (slower but should work)
+                    for (let i = 0; i < data.length; i++) {
+                        module.setValue(dataPtr + i, data[i], 'i8');
                     }
                 }
                 console.log('Data copied successfully');
@@ -138,7 +158,7 @@ function createWASMWrapper(module) {
                 
                 // Read header from WASM memory
                 const header = this.readLASHeader(headerPtr);
-                console.log(`Loaded ${header.pointCount.toLocaleString()} points`);
+                console.log(`Point cloud loaded: ${header.pointCount.toLocaleString()} points`);
                 
                 return header;
             } catch (error) {
@@ -152,39 +172,59 @@ function createWASMWrapper(module) {
          * @returns {Object} Header data
          */
         readLASHeader: function(ptr) {
-            // LASHeader struct layout (from design.md):
-            // uint32_t point_count
-            // double min_x, min_y, min_z
-            // double max_x, max_y, max_z
-            // double scale_x, scale_y, scale_z
-            // double offset_x, offset_y, offset_z
-            // uint8_t point_format
-            // uint16_t point_record_length
+            // LASHeader struct layout (from las_parser.h):
+            // uint32_t point_count          (4 bytes)
+            // [4 bytes padding for alignment]
+            // double min_x, min_y, min_z    (24 bytes)
+            // double max_x, max_y, max_z    (24 bytes)
+            // double scale_x, scale_y, scale_z  (24 bytes)
+            // double offset_x, offset_y, offset_z (24 bytes)
+            // uint8_t point_format          (1 byte)
+            // [1 byte padding]
+            // uint16_t point_record_length  (2 bytes)
+            // uint8_t version_major         (1 byte)
+            // uint8_t version_minor         (1 byte)
+            // [2 bytes padding to align to 8 bytes]
+            // Total: 112 bytes
             
-            let offset = ptr / 4; // Convert to 32-bit offset
+            let offset = ptr;
             
-            const pointCount = this.HEAPU32[offset];
+            // Read uint32_t point_count
+            const pointCount = module.getValue(offset, 'i32');
+            offset += 4;
+            
+            // Skip 4 bytes of padding (struct alignment for doubles)
+            offset += 4;
+            
+            // Read 12 doubles (min/max/scale/offset for x,y,z)
+            const minX = module.getValue(offset, 'double'); offset += 8;
+            const minY = module.getValue(offset, 'double'); offset += 8;
+            const minZ = module.getValue(offset, 'double'); offset += 8;
+            const maxX = module.getValue(offset, 'double'); offset += 8;
+            const maxY = module.getValue(offset, 'double'); offset += 8;
+            const maxZ = module.getValue(offset, 'double'); offset += 8;
+            const scaleX = module.getValue(offset, 'double'); offset += 8;
+            const scaleY = module.getValue(offset, 'double'); offset += 8;
+            const scaleZ = module.getValue(offset, 'double'); offset += 8;
+            const offsetX = module.getValue(offset, 'double'); offset += 8;
+            const offsetY = module.getValue(offset, 'double'); offset += 8;
+            const offsetZ = module.getValue(offset, 'double'); offset += 8;
+            
+            // Read uint8_t point_format
+            const pointFormat = module.getValue(offset, 'i8');
             offset += 1;
             
-            // Read doubles (8 bytes each)
-            const doubleOffset = (ptr + 4) / 8;
-            const minX = this.HEAPF64[doubleOffset];
-            const minY = this.HEAPF64[doubleOffset + 1];
-            const minZ = this.HEAPF64[doubleOffset + 2];
-            const maxX = this.HEAPF64[doubleOffset + 3];
-            const maxY = this.HEAPF64[doubleOffset + 4];
-            const maxZ = this.HEAPF64[doubleOffset + 5];
-            const scaleX = this.HEAPF64[doubleOffset + 6];
-            const scaleY = this.HEAPF64[doubleOffset + 7];
-            const scaleZ = this.HEAPF64[doubleOffset + 8];
-            const offsetX = this.HEAPF64[doubleOffset + 9];
-            const offsetY = this.HEAPF64[doubleOffset + 10];
-            const offsetZ = this.HEAPF64[doubleOffset + 11];
+            // Skip 1 byte padding
+            offset += 1;
             
-            // Read uint8_t and uint16_t
-            const byteOffset = ptr + 4 + (12 * 8);
-            const pointFormat = this.HEAPU8[byteOffset];
-            const pointRecordLength = this.HEAPU16[(byteOffset + 1) / 2];
+            // Read uint16_t point_record_length
+            const pointRecordLength = module.getValue(offset, 'i16');
+            offset += 2;
+            
+            // Read version fields
+            const versionMajor = module.getValue(offset, 'i8');
+            offset += 1;
+            const versionMinor = module.getValue(offset, 'i8');
             
             return {
                 pointCount,
@@ -195,7 +235,8 @@ function createWASMWrapper(module) {
                 scale: { x: scaleX, y: scaleY, z: scaleZ },
                 offset: { x: offsetX, y: offsetY, z: offsetZ },
                 pointFormat,
-                pointRecordLength
+                pointRecordLength,
+                version: `${versionMajor}.${versionMinor}`
             };
         },
         
@@ -213,8 +254,8 @@ function createWASMWrapper(module) {
                 // Call WASM function
                 const dataPtr = module._getPointData(countPtr);
                 
-                // Read count
-                const count = this.HEAPU32[countPtr / 4];
+                // Read count using getValue
+                const count = module.getValue(countPtr, 'i32');
                 this.free(countPtr);
                 
                 if (!dataPtr || count === 0) {
@@ -227,9 +268,9 @@ function createWASMWrapper(module) {
                     };
                 }
                 
-                // Read point data (structure-of-arrays layout)
-                // LASPoint: float x, y, z; uint8_t r, g, b; uint16_t intensity; uint8_t classification
-                const pointSize = 4 * 3 + 3 + 2 + 1; // 20 bytes per point
+                // Use the correct struct size (20 bytes with padding)
+                // C++ struct layout: float x,y,z (12) + uint8_t r,g,b (3) + 1 padding + uint16_t intensity (2) + uint8_t class (1) + 1 padding = 20
+                const pointSize = 20;
                 
                 const positions = new Float32Array(count * 3);
                 const colors = new Uint8Array(count * 3);
@@ -237,27 +278,31 @@ function createWASMWrapper(module) {
                 const classification = new Uint8Array(count);
                 
                 for (let i = 0; i < count; i++) {
-                    const offset = dataPtr + i * pointSize;
+                    let offset = dataPtr + i * pointSize;
                     
-                    // Read positions (3 floats)
-                    positions[i * 3] = this.HEAPF32[(offset) / 4];
-                    positions[i * 3 + 1] = this.HEAPF32[(offset + 4) / 4];
-                    positions[i * 3 + 2] = this.HEAPF32[(offset + 8) / 4];
+                    // Read positions (3 floats) using getValue
+                    positions[i * 3] = module.getValue(offset, 'float'); offset += 4;
+                    positions[i * 3 + 1] = module.getValue(offset, 'float'); offset += 4;
+                    positions[i * 3 + 2] = module.getValue(offset, 'float'); offset += 4;
                     
                     // Read colors (3 uint8_t)
-                    colors[i * 3] = this.HEAPU8[offset + 12];
-                    colors[i * 3 + 1] = this.HEAPU8[offset + 13];
-                    colors[i * 3 + 2] = this.HEAPU8[offset + 14];
+                    colors[i * 3] = module.getValue(offset, 'i8'); offset += 1;
+                    colors[i * 3 + 1] = module.getValue(offset, 'i8'); offset += 1;
+                    colors[i * 3 + 2] = module.getValue(offset, 'i8'); offset += 1;
+                    
+                    // Skip 1 byte of padding for alignment
+                    offset += 1;
                     
                     // Read intensity (uint16_t)
-                    intensity[i] = this.HEAPU16[(offset + 15) / 2];
+                    intensity[i] = module.getValue(offset, 'i16'); offset += 2;
                     
                     // Read classification (uint8_t)
-                    classification[i] = this.HEAPU8[offset + 17];
+                    classification[i] = module.getValue(offset, 'i8');
                 }
                 
                 return { positions, colors, intensity, classification, count };
             } catch (error) {
+                console.error('Error in getPointData:', error);
                 throw new Error(`Failed to get point data: ${error.message}`);
             }
         },
@@ -288,8 +333,10 @@ function createWASMWrapper(module) {
                     throw new Error('Failed to allocate memory for frustum planes.');
                 }
                 
-                // Copy frustum planes to WASM memory
-                this.HEAPF32.set(frustumPlanes, planesPtr / 4);
+                // Copy frustum planes to WASM memory using setValue
+                for (let i = 0; i < frustumPlanes.length; i++) {
+                    module.setValue(planesPtr + i * 4, frustumPlanes[i], 'float');
+                }
                 
                 // Allocate memory for output count
                 const countPtr = this.malloc(4);
@@ -306,13 +353,15 @@ function createWASMWrapper(module) {
                     countPtr
                 );
                 
-                // Read count
-                const count = this.HEAPU32[countPtr / 4];
+                // Read count using getValue
+                const count = module.getValue(countPtr, 'i32');
                 
                 // Copy indices to JavaScript array
                 const indices = new Uint32Array(count);
                 if (count > 0 && indicesPtr) {
-                    indices.set(this.HEAPU32.subarray(indicesPtr / 4, indicesPtr / 4 + count));
+                    for (let i = 0; i < count; i++) {
+                        indices[i] = module.getValue(indicesPtr + i * 4, 'i32');
+                    }
                 }
                 
                 // Free allocated memory

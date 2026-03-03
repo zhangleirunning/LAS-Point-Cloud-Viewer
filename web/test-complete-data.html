@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Data Display Test - LAS Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        
+        .test-info {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .test-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status-pass {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status-fail {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status-pending {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .viewer-container {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 600px;
+        }
+        
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+        }
+        
+        input[type="file"] {
+            padding: 10px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #e0e0e0;
+            width: 100%;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .stats {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #b0b0b0;
+        }
+        
+        .stat-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .test-results {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .test-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background: #3a3a3a;
+        }
+        
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Complete Data Display Test</h1>
+        <div class="test-info">
+            <p>This page tests that the viewer displays complete point cloud data, not just a subset.</p>
+            <p><strong>Test Objective:</strong> Verify that all visible points are rendered using spatial index and frustum culling.</p>
+            <p><strong>Expected Behavior:</strong> Visible point count should change as you rotate the camera, indicating proper frustum culling.</p>
+        </div>
+        
+        <div id="error-display" style="display: none;" class="error"></div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="file-input">Select LAS File:</label>
+                <input type="file" id="file-input" accept=".las">
+            </div>
+            <button id="load-btn" disabled>Load File</button>
+            <button id="test-btn" disabled>Run Automated Test</button>
+        </div>
+        
+        <div class="viewer-container">
+            <canvas id="viewer-canvas"></canvas>
+        </div>
+        
+        <div class="stats">
+            <h3>Statistics</h3>
+            <div class="stat-row">
+                <span class="stat-label">Total Points:</span>
+                <span class="stat-value" id="total-points">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Visible Points:</span>
+                <span class="stat-value" id="visible-points">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Visibility Ratio:</span>
+                <span class="stat-value" id="visibility-ratio">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FPS:</span>
+                <span class="stat-value" id="fps">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Camera Distance:</span>
+                <span class="stat-value" id="camera-distance">-</span>
+            </div>
+        </div>
+        
+        <div class="test-results">
+            <h3>Test Results</h3>
+            <div id="test-results-container">
+                <p style="color: #888;">Load a file and click "Run Automated Test" to see results.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="las_viewer.js"></script>
+    <script type="module">
+        import { PointCloudViewer } from './PointCloudViewer.js';
+        
+        const canvas = document.getElementById('viewer-canvas');
+        const fileInput = document.getElementById('file-input');
+        const loadBtn = document.getElementById('load-btn');
+        const testBtn = document.getElementById('test-btn');
+        const errorDisplay = document.getElementById('error-display');
+        
+        let viewer = null;
+        let selectedFile = null;
+        
+        // Initialize viewer
+        async function init() {
+            try {
+                viewer = new PointCloudViewer(canvas);
+                await viewer.initialize();
+                console.log('Viewer initialized');
+                
+                // Make viewer globally accessible for debugging
+                window.viewer = viewer;
+                
+                // Start render loop
+                viewer.startRenderLoop();
+                
+                // Update stats display
+                setInterval(updateStatsDisplay, 100);
+                
+            } catch (error) {
+                showError('Failed to initialize viewer: ' + error.message);
+                console.error(error);
+            }
+        }
+        
+        // File selection handler
+        fileInput.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            loadBtn.disabled = !selectedFile;
+        });
+        
+        // Load button handler
+        loadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            try {
+                hideError();
+                loadBtn.disabled = true;
+                loadBtn.textContent = 'Loading...';
+                
+                const metadata = await viewer.loadFile(selectedFile);
+                
+                console.log('File loaded:', metadata);
+                loadBtn.textContent = 'Load File';
+                loadBtn.disabled = false;
+                testBtn.disabled = false;
+                
+                // Show success message
+                showSuccess(`Loaded ${metadata.pointCount.toLocaleString()} points from ${metadata.fileName}`);
+                
+            } catch (error) {
+                showError('Failed to load file: ' + error.message);
+                console.error(error);
+                loadBtn.textContent = 'Load File';
+                loadBtn.disabled = false;
+            }
+        });
+        
+        // Test button handler
+        testBtn.addEventListener('click', async () => {
+            if (!viewer.isFileLoaded) return;
+            
+            testBtn.disabled = true;
+            testBtn.textContent = 'Running Test...';
+            
+            await runAutomatedTest();
+            
+            testBtn.textContent = 'Run Automated Test';
+            testBtn.disabled = false;
+        });
+        
+        // Update stats display
+        function updateStatsDisplay() {
+            if (!viewer || !viewer.isFileLoaded) return;
+            
+            const stats = viewer.getStats();
+            
+            document.getElementById('total-points').textContent = stats.pointCount.toLocaleString();
+            document.getElementById('visible-points').textContent = stats.visiblePoints.toLocaleString();
+            
+            const ratio = ((stats.visiblePoints / stats.pointCount) * 100).toFixed(1);
+            document.getElementById('visibility-ratio').textContent = ratio + '%';
+            
+            document.getElementById('fps').textContent = stats.fps;
+            document.getElementById('camera-distance').textContent = stats.cameraDistance.toFixed(2);
+        }
+        
+        // Run automated test
+        async function runAutomatedTest() {
+            const results = [];
+            const container = document.getElementById('test-results-container');
+            container.innerHTML = '<p>Running tests...</p>';
+            
+            // Test 1: Check that total points loaded correctly
+            const test1 = {
+                name: 'Total Points Loaded',
+                pass: viewer.stats.pointCount > 0,
+                message: `Loaded ${viewer.stats.pointCount.toLocaleString()} points`
+            };
+            results.push(test1);
+            
+            // Test 2: Check that visible points are being calculated
+            const test2 = {
+                name: 'Visible Points Calculated',
+                pass: viewer.stats.visiblePoints > 0,
+                message: `${viewer.stats.visiblePoints.toLocaleString()} points visible`
+            };
+            results.push(test2);
+            
+            // Test 3: Check that frustum culling is working (visible < total for large files)
+            const test3 = {
+                name: 'Frustum Culling Active',
+                pass: viewer.stats.pointCount < 100000 || viewer.stats.visiblePoints < viewer.stats.pointCount,
+                message: viewer.stats.pointCount < 100000 
+                    ? 'Small file - all points visible (expected)'
+                    : `Culling active: ${viewer.stats.visiblePoints.toLocaleString()} of ${viewer.stats.pointCount.toLocaleString()} visible`
+            };
+            results.push(test3);
+            
+            // Test 4: Rotate camera and check that visible count changes
+            const initialVisible = viewer.stats.visiblePoints;
+            const initialAzimuth = viewer.camera.azimuth;
+            
+            // Rotate camera 90 degrees
+            viewer.camera.azimuth += 90;
+            viewer.camera.updatePosition();
+            
+            // Wait for a few frames to render
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            const newVisible = viewer.stats.visiblePoints;
+            
+            // Restore camera
+            viewer.camera.azimuth = initialAzimuth;
+            viewer.camera.updatePosition();
+            
+            const test4 = {
+                name: 'Dynamic Frustum Culling',
+                pass: Math.abs(newVisible - initialVisible) > 0 || viewer.stats.pointCount < 10000,
+                message: viewer.stats.pointCount < 10000
+                    ? 'Small file - all points always visible (expected)'
+                    : `Visible count changed from ${initialVisible.toLocaleString()} to ${newVisible.toLocaleString()} on rotation`
+            };
+            results.push(test4);
+            
+            // Test 5: Check FPS is acceptable
+            const test5 = {
+                name: 'Performance (FPS)',
+                pass: viewer.stats.fps >= 25,
+                message: `${viewer.stats.fps} FPS (target: 30+)`
+            };
+            results.push(test5);
+            
+            // Test 6: Check that we're not limited to 50K points
+            const test6 = {
+                name: 'No 50K Point Limit',
+                pass: viewer.stats.pointCount <= 50000 || viewer.stats.visiblePoints !== 50000,
+                message: viewer.stats.pointCount <= 50000
+                    ? 'File has < 50K points (test not applicable)'
+                    : viewer.stats.visiblePoints === 50000
+                        ? '⚠️ Exactly 50K visible - may indicate old bug!'
+                        : `✓ Showing ${viewer.stats.visiblePoints.toLocaleString()} points (not limited to 50K)`
+            };
+            results.push(test6);
+            
+            // Display results
+            displayTestResults(results);
+        }
+        
+        // Display test results
+        function displayTestResults(results) {
+            const container = document.getElementById('test-results-container');
+            container.innerHTML = '';
+            
+            const passCount = results.filter(r => r.pass).length;
+            const totalCount = results.length;
+            
+            const summary = document.createElement('div');
+            summary.className = 'test-item';
+            summary.style.background = passCount === totalCount ? '#4CAF50' : '#ff9800';
+            summary.style.color = 'white';
+            summary.innerHTML = `<strong>Summary: ${passCount}/${totalCount} tests passed</strong>`;
+            container.appendChild(summary);
+            
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'test-item';
+                item.innerHTML = `
+                    <strong>${result.name}</strong>
+                    <span class="test-status ${result.pass ? 'status-pass' : 'status-fail'}">
+                        ${result.pass ? 'PASS' : 'FAIL'}
+                    </span>
+                    <p style="margin: 10px 0 0 0; color: #b0b0b0;">${result.message}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+        
+        // Show error
+        function showError(message) {
+            errorDisplay.textContent = message;
+            errorDisplay.style.display = 'block';
+        }
+        
+        // Hide error
+        function hideError() {
+            errorDisplay.style.display = 'none';
+        }
+        
+        // Show success
+        function showSuccess(message) {
+            errorDisplay.textContent = message;
+            errorDisplay.style.display = 'block';
+            errorDisplay.style.background = '#4CAF50';
+            setTimeout(() => {
+                errorDisplay.style.display = 'none';
+                errorDisplay.style.background = '#f44336';
+            }, 3000);
+        }
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

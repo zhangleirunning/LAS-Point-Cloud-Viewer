@@ -19,8 +19,11 @@ export class PointCloudViewer {
         this.isFileLoaded = false;
         this.isRendering = false;
         
-        // Color mode
-        this.colorMode = ColorMapper.MODES.RGB;
+        // Color mode (default to elevation since RGB was removed from UI)
+        this.colorMode = ColorMapper.MODES.ELEVATION;
+        
+        // Cache for point data (avoid reading from WASM every frame)
+        this.cachedPointData = null;
         
         // Statistics
         this.stats = {
@@ -111,10 +114,35 @@ export class PointCloudViewer {
             
             // Build spatial index (octree) for efficient queries
             console.log('Building spatial index...');
-            const startTime = performance.now();
             this.wasmModule.buildSpatialIndex();
-            const buildTime = performance.now() - startTime;
-            console.log(`Spatial index built in ${buildTime.toFixed(2)}ms`);
+            console.log('Spatial index built');
+            
+            // Cache point data to avoid reading from WASM every frame
+            console.log('Caching point data...');
+            this.cachedPointData = this.wasmModule.getPointData();
+            console.log(`Cached ${this.cachedPointData.count} points`);
+            
+            // Diagnostic: Check if RGB data is actually colorful or grayscale
+            if (this.cachedPointData.count > 0) {
+                const sampleSize = Math.min(100, this.cachedPointData.count);
+                let hasColor = false;
+                for (let i = 0; i < sampleSize; i++) {
+                    const r = this.cachedPointData.colors[i * 3];
+                    const g = this.cachedPointData.colors[i * 3 + 1];
+                    const b = this.cachedPointData.colors[i * 3 + 2];
+                    if (r !== g || g !== b) {
+                        hasColor = true;
+                        break;
+                    }
+                }
+                if (!hasColor) {
+                    console.warn('⚠️ RGB data appears to be grayscale (R=G=B for all sampled points)');
+                    console.warn('   This is common for LiDAR data without true color.');
+                    console.warn('   Try "Elevation" or "Intensity" modes for better visualization.');
+                } else {
+                    console.log('✓ RGB data contains color information');
+                }
+            }
             
             // Center camera on point cloud bounds
             this.centerCamera();
@@ -185,13 +213,64 @@ export class PointCloudViewer {
                 // Get frustum planes from camera for culling
                 const frustumPlanes = this.camera.getFrustumPlanes();
                 
-                // Query visible points from WASM using frustum culling and LOD
-                const maxPoints = 1000000; // Maximum points to render per frame
-                const visibleIndices = this.wasmModule.queryVisiblePoints(
-                    frustumPlanes,
-                    this.camera.distance,
-                    maxPoints
-                );
+                // Determine how many points to render
+                // For small files, render all points
+                // For large files, use spatial query or limit to reasonable amount
+                const maxPointsToRender = 2000000; // Allow up to 2M visible points (increased to reduce gaps)
+                let visibleIndices;
+                
+                // Try to use spatial index query if available
+                if (this.wasmModule && typeof this.wasmModule.queryVisiblePoints === 'function') {
+                    try {
+                        visibleIndices = this.wasmModule.queryVisiblePoints(
+                            frustumPlanes,
+                            this.camera.distance,
+                            maxPointsToRender
+                        );
+                        // Log spatial query results
+                        if (visibleIndices.length > 0) {
+                            console.log(`Spatial query returned ${visibleIndices.length} points`);
+                        } else {
+                            // Query returned 0 points - this might indicate an issue
+                            // Log once to avoid spam
+                            if (!this._spatialQueryWarningShown) {
+                                console.warn('Spatial query returned 0 points. This may indicate:');
+                                console.warn('  - Frustum planes are incorrect');
+                                console.warn('  - Camera is positioned outside point cloud');
+                                console.warn('  - Spatial index has an issue');
+                                console.warn('Falling back to uniform sampling.');
+                                this._spatialQueryWarningShown = true;
+                            }
+                        }
+                    } catch (error) {
+                        if (!this._spatialQueryErrorShown) {
+                            console.warn('Spatial query failed:', error);
+                            console.warn('Falling back to uniform sampling.');
+                            this._spatialQueryErrorShown = true;
+                        }
+                        visibleIndices = null;
+                    }
+                }
+                
+                // Fallback: render all points (or a subset for very large files)
+                if (!visibleIndices || visibleIndices.length === 0) {
+                    const pointsToShow = Math.min(this.stats.pointCount, maxPointsToRender);
+                    visibleIndices = new Uint32Array(pointsToShow);
+                    
+                    if (pointsToShow === this.stats.pointCount) {
+                        // Small file: show all points
+                        for (let i = 0; i < pointsToShow; i++) {
+                            visibleIndices[i] = i;
+                        }
+                    } else {
+                        // Large file: sample points evenly across the dataset
+                        const step = this.stats.pointCount / pointsToShow;
+                        for (let i = 0; i < pointsToShow; i++) {
+                            visibleIndices[i] = Math.floor(i * step);
+                        }
+                        console.log(`Sampling ${pointsToShow.toLocaleString()} of ${this.stats.pointCount.toLocaleString()} points (step: ${step.toFixed(2)})`);
+                    }
+                }
                 
                 this.stats.visiblePoints = visibleIndices.length;
                 
@@ -202,7 +281,7 @@ export class PointCloudViewer {
                 this.renderer.updatePointData(
                     pointData.positions, 
                     pointData.colors, 
-                    visibleIndices.length
+                    this.stats.visiblePoints
                 );
                 
                 // Render frame
@@ -263,6 +342,7 @@ export class PointCloudViewer {
         }
         
         const bounds = this.metadata.bounds;
+        
         this.camera.target = [
             (bounds.minX + bounds.maxX) / 2,
             (bounds.minY + bounds.maxY) / 2,
@@ -277,6 +357,8 @@ export class PointCloudViewer {
         
         this.camera.distance = maxSize * 2;
         this.camera.updatePosition();
+        
+        console.log(`Camera centered on point cloud (${this.stats.pointCount.toLocaleString()} points)`);
     }
     
     /**
@@ -285,15 +367,24 @@ export class PointCloudViewer {
      * @returns {Object} Object with positions and colors arrays
      */
     getPointsForIndices(indices) {
-        if (!this.wasmModule || indices.length === 0) {
+        if (!this.cachedPointData || indices.length === 0) {
+            console.warn('getPointsForIndices: No cached data or empty indices');
             return {
                 positions: new Float32Array(0),
                 colors: new Uint8Array(0)
             };
         }
         
-        // Get all point data from WASM
-        const allPointData = this.wasmModule.getPointData();
+        // Use cached point data instead of calling WASM every frame
+        const allPointData = this.cachedPointData;
+        
+        if (!allPointData || allPointData.count === 0) {
+            console.error('Cached point data is empty!');
+            return {
+                positions: new Float32Array(0),
+                colors: new Uint8Array(0)
+            };
+        }
         
         // Extract data for requested indices
         const positions = new Float32Array(indices.length * 3);
@@ -303,6 +394,12 @@ export class PointCloudViewer {
         
         for (let i = 0; i < indices.length; i++) {
             const idx = indices[i];
+            
+            // Bounds check
+            if (idx >= allPointData.count) {
+                console.error(`Index ${idx} out of bounds (max: ${allPointData.count})`);
+                continue;
+            }
             
             // Copy position (XYZ)
             positions[i * 3] = allPointData.positions[idx * 3];
@@ -340,6 +437,7 @@ export class PointCloudViewer {
         if (Object.values(ColorMapper.MODES).includes(mode)) {
             this.colorMode = mode;
             console.log(`Color mode changed to: ${mode}`);
+            // Note: Color will update on next render frame automatically
         } else {
             console.warn(`Invalid color mode: ${mode}`);
         }
@@ -350,6 +448,9 @@ export class PointCloudViewer {
      */
     dispose() {
         this.stopRenderLoop();
+        
+        // Clear cached data
+        this.cachedPointData = null;
         
         if (this.wasmModule) {
             // Free WASM memory

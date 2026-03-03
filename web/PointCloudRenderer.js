@@ -197,7 +197,6 @@ void main() {
         const gl = this.gl;
         
         if (!positions || !colors || count <= 0) {
-            console.warn('Invalid point data provided');
             this.pointCount = 0;
             return;
         }

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Render Test - LAS Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 600px;
+            background: #000;
+            border: 2px solid #4CAF50;
+        }
+        
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .info {
+            background: #2a2a2a;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Basic Render Test</h1>
+    
+    <div class="controls">
+        <input type="file" id="file-input" accept=".las">
+        <button id="load-btn" disabled>Load File</button>
+    </div>
+    
+    <canvas id="viewer-canvas"></canvas>
+    
+    <div class="info">
+        <h3>Status</h3>
+        <p id="status">Initializing...</p>
+        <h3>Console Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+    
+    <script src="las_viewer.js"></script>
+    <script type="module">
+        import { PointCloudViewer } from './PointCloudViewer.js';
+        
+        const canvas = document.getElementById('viewer-canvas');
+        const fileInput = document.getElementById('file-input');
+        const loadBtn = document.getElementById('load-btn');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        
+        let viewer = null;
+        let selectedFile = null;
+        
+        // Capture console logs
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addLog(type, ...args) {
+            const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+            const line = document.createElement('div');
+            line.style.color = type === 'error' ? '#f00' : type === 'warn' ? '#ff0' : '#0f0';
+            line.textContent = `[${type.toUpperCase()}] ${message}`;
+            logEl.appendChild(line);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog('log', ...args);
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog('warn', ...args);
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog('error', ...args);
+        };
+        
+        // Initialize viewer
+        async function init() {
+            try {
+                statusEl.textContent = 'Initializing viewer...';
+                viewer = new PointCloudViewer(canvas);
+                await viewer.initialize();
+                
+                window.viewer = viewer;
+                viewer.startRenderLoop();
+                
+                statusEl.textContent = 'Ready! Select a LAS file to load.';
+                console.log('Viewer initialized successfully');
+                
+            } catch (error) {
+                statusEl.textContent = 'Failed to initialize: ' + error.message;
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        fileInput.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            loadBtn.disabled = !selectedFile;
+        });
+        
+        loadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            try {
+                loadBtn.disabled = true;
+                statusEl.textContent = 'Loading file...';
+                
+                console.log('Loading file:', selectedFile.name);
+                const metadata = await viewer.loadFile(selectedFile);
+                
+                console.log('File loaded successfully:', metadata);
+                statusEl.textContent = `Loaded ${metadata.pointCount.toLocaleString()} points`;
+                
+                loadBtn.disabled = false;
+                
+            } catch (error) {
+                statusEl.textContent = 'Failed to load: ' + error.message;
+                console.error('Load error:', error);
+                loadBtn.disabled = false;
+            }
+        });
+        
+        init();
+    </script>
+</body>
+</html>

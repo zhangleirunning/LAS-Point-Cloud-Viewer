@@ -633,11 +633,11 @@ TEST_CASE("Invalid file rejection property", "[las_parser][property][error_handl
                     invalid_data[1] = 'A';
                     invalid_data[2] = 'S';
                     invalid_data[3] = 'F';
-                    // Generate unsupported version (not 1.2 or 1.4)
+                    // Generate unsupported version (not 1.2, 1.3, or 1.4)
                     auto major = *rc::gen::inRange<uint8_t>(0, 10);
                     auto minor = *rc::gen::inRange<uint8_t>(0, 10);
-                    // Ensure it's not 1.2 or 1.4
-                    if (major == 1 && (minor == 2 || minor == 4)) {
+                    // Ensure it's not 1.2, 1.3, or 1.4
+                    if (major == 1 && (minor == 2 || minor == 3 || minor == 4)) {
                         major = 2;
                     }
                     invalid_data[24] = major;
@@ -656,9 +656,11 @@ TEST_CASE("Invalid file rejection property", "[las_parser][property][error_handl
                     invalid_data[24] = 1;
                     invalid_data[25] = 2;
                     writeLittleEndian<uint16_t>(invalid_data.data() + 94, 227);
-                    // Generate unsupported format (not 2)
+                    // Generate unsupported format (not 2, 3, or 6)
                     auto format = *rc::gen::inRange<uint8_t>(0, 10);
-                    if (format == 2) format = 5;
+                    if (format == 2 || format == 3 || format == 6) {
+                        format = 5;
+                    }
                     invalid_data[104] = format;
                     break;
                 }
