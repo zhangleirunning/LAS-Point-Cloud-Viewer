@@ -77,16 +77,36 @@ function createWASMWrapper(module) {
          */
         loadLASFile: function(data) {
             try {
-                // Allocate memory for file data
-                const dataPtr = this.malloc(data.length);
-                if (!dataPtr) {
-                    throw new Error('Failed to allocate memory for file data. The file may be too large.');
+                console.log(`Loading LAS file: ${(data.length / 1024 / 1024).toFixed(2)} MB`);
+                
+                // Check file size
+                if (data.length > 2 * 1024 * 1024 * 1024) {
+                    throw new Error('File too large (> 2GB). Please use a smaller file.');
                 }
                 
-                // Copy data to WASM memory
-                this.HEAPU8.set(data, dataPtr);
+                // Allocate memory for file data
+                console.log('Allocating WASM memory...');
+                const dataPtr = this.malloc(data.length);
+                if (!dataPtr) {
+                    throw new Error(`Failed to allocate ${(data.length / 1024 / 1024).toFixed(2)} MB of memory. The file may be too large for available memory.`);
+                }
+                
+                console.log('Copying data to WASM memory...');
+                // Copy data to WASM memory in chunks to avoid blocking
+                const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+                for (let offset = 0; offset < data.length; offset += chunkSize) {
+                    const end = Math.min(offset + chunkSize, data.length);
+                    const chunk = data.subarray(offset, end);
+                    this.HEAPU8.set(chunk, dataPtr + offset);
+                    
+                    if (offset % (50 * 1024 * 1024) === 0) {
+                        console.log(`Copied ${(offset / 1024 / 1024).toFixed(2)} MB / ${(data.length / 1024 / 1024).toFixed(2)} MB`);
+                    }
+                }
+                console.log('Data copied successfully');
                 
                 // Call WASM function
+                console.log('Parsing LAS file...');
                 const headerPtr = module._loadLASFile(dataPtr, data.length);
                 
                 // Free input data
@@ -98,6 +118,7 @@ function createWASMWrapper(module) {
                 
                 // Read header from WASM memory
                 const header = this.readLASHeader(headerPtr);
+                console.log(`Loaded ${header.pointCount.toLocaleString()} points`);
                 
                 return header;
             } catch (error) {
