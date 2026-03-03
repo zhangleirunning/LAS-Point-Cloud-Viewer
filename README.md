@@ -59,8 +59,8 @@ open http://localhost:8000/web/index.html
 ### 1. Clone Repository
 
 ```bash
-git clone <repository-url>
-cd las-point-cloud-viewer
+git clone https://github.com/zhangleirunning/LAS-Point-Cloud-Viewer 
+cd LAS-Point-Cloud-Viewer 
 ```
 
 ### 2. Install Emscripten
@@ -87,7 +87,7 @@ cd ..
 ## Project Structure
 
 ```
-las-point-cloud-viewer/
+LAS-Point-Cloud-Viewer/
 ├── src/                       # C++ source code
 │   ├── las_parser.cpp         # LAS file parsing
 │   ├── spatial_index.cpp      # Octree implementation
