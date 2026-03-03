@@ -10,20 +10,84 @@
     <div class="container">
         <header>
             <h1>LAS Point Cloud Viewer</h1>
+            <p class="subtitle">WebAssembly-powered 3D point cloud visualization</p>
         </header>
         
         <div class="controls">
-            <input type="file" id="fileInput" accept=".las" />
-            <div id="metadata"></div>
+            <div class="file-upload-section">
+                <label for="fileInput" class="file-label">
+                    <span class="file-icon">📁</span>
+                    <span class="file-text">Choose LAS File</span>
+                </label>
+                <input type="file" id="fileInput" accept=".las" />
+                <span id="fileName" class="file-name"></span>
+            </div>
+            
+            <div id="loadingIndicator" class="loading-indicator hidden">
+                <div class="spinner"></div>
+                <span class="loading-text">Loading point cloud...</span>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <div id="metadata" class="metadata hidden">
+                <h3>File Metadata</h3>
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <span class="metadata-label">Point Count:</span>
+                        <span id="pointCount" class="metadata-value">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">File Size:</span>
+                        <span id="fileSize" class="metadata-value">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Bounds X:</span>
+                        <span id="boundsX" class="metadata-value">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Bounds Y:</span>
+                        <span id="boundsY" class="metadata-value">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Bounds Z:</span>
+                        <span id="boundsZ" class="metadata-value">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Point Format:</span>
+                        <span id="pointFormat" class="metadata-value">-</span>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="viewer">
             <canvas id="canvas"></canvas>
-            <div id="stats"></div>
+            <div id="stats" class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">FPS:</span>
+                    <span id="fps" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Visible Points:</span>
+                    <span id="visiblePoints" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Camera Distance:</span>
+                    <span id="cameraDistance" class="stat-value">0</span>
+                </div>
+            </div>
+            <div class="controls-hint">
+                <p>🖱️ Left drag: Rotate | Right drag: Pan | Scroll: Zoom</p>
+            </div>
         </div>
         
         <div id="error" class="error hidden"></div>
     </div>
+    
+    <!-- WASM stub for development (replace with actual WASM build) -->
+    <script src="wasm-stub.js"></script>
     
     <script type="module" src="main.js"></script>
 </body>
