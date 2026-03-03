@@ -12,27 +12,14 @@ export async function loadWASM() {
         console.log('Loading WASM module...');
         
         // Check if Emscripten runtime is available
-        if (typeof Module === 'undefined') {
-            throw new Error('WebAssembly module not found. The application may not be properly built or deployed.');
+        if (typeof createLASViewerModule === 'undefined') {
+            throw new Error('WebAssembly module not found. Make sure las_viewer.js is loaded before this script.');
         }
         
-        // Wait for WASM module to be ready
-        const wasmModule = await new Promise((resolve, reject) => {
-            // Configure Emscripten Module
-            Module.onRuntimeInitialized = () => {
-                console.log('WASM runtime initialized');
-                resolve(Module);
-            };
-            
-            Module.onAbort = (error) => {
-                reject(new Error(`WebAssembly module initialization failed: ${error}`));
-            };
-            
-            // Set timeout for initialization
-            setTimeout(() => {
-                reject(new Error('WebAssembly module initialization timeout. The module took too long to load.'));
-            }, 10000);
-        });
+        // Initialize the WASM module
+        const wasmModule = await createLASViewerModule();
+        
+        console.log('WASM runtime initialized');
         
         // Create wrapper object with typed functions
         const wrapper = createWASMWrapper(wasmModule);
