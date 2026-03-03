@@ -44,32 +44,10 @@ This project showcases:
 - Support for large datasets (10M+ points)
 - Color visualization (RGB, elevation, intensity, classification)
 
-## Demo
-
-### Live Demo
-
-*Note: A live demo will be hosted at [your-demo-url] once deployed*
-
-### Screenshots
-
-<table>
-  <tr>
-    <td><img src="docs/screenshot-main.png" alt="Main viewer" width="400"/></td>
-    <td><img src="docs/screenshot-colors.png" alt="Color modes" width="400"/></td>
-  </tr>
-  <tr>
-    <td align="center"><em>Main viewer with RGB colors</em></td>
-    <td align="center"><em>Elevation-based coloring</em></td>
-  </tr>
-</table>
-
-### Sample Data
+## Sample Data
 
 To test the viewer, you can use:
 - **Demo file** (recommended): [Mount Rainier LAZ file](https://drive.google.com/file/d/1ju20rV_XE0HTgKppgn0cnRkTsmgcWBlP/view?usp=drive_link) - 3.3M points, USGS LiDAR data
-- **Small test file** (included): `test_small.las` - 10,000 points
-- **Medium test file** (included): `test_medium.las` - 100,000 points
-- **Large test file** (included): `test_large.las` - 1,000,000 points
 
 Or download more sample LAS files from:
 - [USGS 3DEP LiDAR](https://www.usgs.gov/3d-elevation-program)
