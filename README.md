@@ -42,7 +42,7 @@ This project showcases:
 - Interactive camera controls (orbit, pan, zoom)
 - Level-of-Detail (LOD) management for smooth performance
 - Support for large datasets (10M+ points)
-- Color visualization (RGB, elevation, intensity, classification)
+- Color visualization (elevation, intensity, classification)
 
 ## Sample Data
 
@@ -159,49 +159,21 @@ See [QUICK_START.md](QUICK_START.md) for a simplified guide to get running quick
 
 ### Start a Local Web Server
 
-The project includes convenient server scripts for local development:
-
-#### Option 1: Using the Python script (Recommended):
-
-```bash
-python3 serve.py
-# Or specify a custom port:
-python3 serve.py 3000
-```
-
-#### Option 2: Using the Node.js script:
-
-```bash
-node serve.js
-# Or specify a custom port:
-node serve.js 3000
-```
-
-#### Option 3: Using Python's built-in server:
+#### Using Python's built-in server (Recommended):
 
 ```bash
 python3 -m http.server 8000
 ```
 
-#### Option 4: Using Node.js http-server:
+#### Using Node.js http-server:
 
 ```bash
-npm install -g http-server
-http-server -p 8000
+npx http-server -p 8000
 ```
-
-The included `serve.py` and `serve.js` scripts provide:
-- Proper MIME types for WASM files
-- CORS headers for local development
-- Helpful startup messages with URLs
-- Graceful shutdown handling
 
 ### Open in Browser
 
-Navigate to one of these URLs:
-
-- **Main Viewer**: `http://localhost:8000/web/index.html`
-- **Performance Tests**: `http://localhost:8000/web/performance-test.html`
+Navigate to: **http://localhost:8000/web/index.html**
 
 ### Using the Viewer
 
@@ -235,15 +207,14 @@ The viewer supports LAS format files with the following specifications:
 
 The viewer supports multiple color visualization modes:
 
-1. **RGB** (default): Display original colors from the LAS file
-2. **Elevation**: Color points based on Z coordinate (height)
+1. **Elevation** (default): Color points based on Z coordinate (height)
    - Blue (low) → Green (mid) → Red (high)
-3. **Intensity**: Grayscale based on return signal intensity
+2. **Intensity**: Grayscale based on return signal intensity
    - Black (low intensity) → White (high intensity)
-4. **Classification**: Color-coded by point classification
+3. **Classification**: Color-coded by point classification
    - Ground, vegetation, buildings, water, etc.
 
-Select the mode from the dropdown menu in the UI.
+Select the mode using the radio buttons in the UI.
 
 ### Performance Tips
 
@@ -262,54 +233,42 @@ The viewer displays the following metadata:
 - **FPS**: Current rendering frame rate
 - **Visible Points**: Number of points currently rendered
 
-### Running Performance Tests
-
-The project includes a comprehensive performance validation suite:
-
-```bash
-# 1. Build WASM with optimizations
-./build_wasm.sh
-
-# 2. Start web server
-python3 -m http.server 8000
-
-# 3. Open performance test page
-open http://localhost:8000/web/performance-test.html
-```
-
-The test suite validates:
-- ✓ Load 10M points in < 5 seconds
-- ✓ Render 1M points at 30+ FPS
-- ✓ Memory usage < 2GB
-
-See [PERFORMANCE_TESTING_GUIDE.md](PERFORMANCE_TESTING_GUIDE.md) for detailed instructions.
-
 ## Project Structure
 
 ```
 las-point-cloud-viewer/
-├── CMakeLists.txt           # Main CMake configuration
-├── README.md                # This file
-├── build_native.sh          # Native build script
-├── build_wasm.sh            # WebAssembly build script
-├── src/                     # C++ source code
-│   ├── las_parser.h         # LAS file parser interface
-│   ├── las_parser.cpp       # LAS file parser implementation
-│   ├── spatial_index.h      # Octree spatial index interface
-│   ├── spatial_index.cpp    # Octree spatial index implementation
-│   └── wasm_interface.cpp   # WebAssembly exported functions
-├── tests/                   # C++ tests
-│   ├── CMakeLists.txt       # Test configuration
-│   ├── test_main.cpp        # Catch2 main entry point
-│   ├── test_las_parser.cpp  # LAS parser tests
-│   └── test_spatial_index.cpp # Spatial index tests
-├── web/                     # Web application
-│   ├── index.html           # Main HTML page
-│   ├── style.css            # Styles
-│   ├── main.js              # JavaScript application logic
-│   ├── las_viewer.js        # Generated WASM glue code
-│   └── las_viewer.wasm      # Generated WASM binary
-└── cmake/                   # CMake modules (if needed)
+├── CMakeLists.txt                # Main CMake configuration
+├── README.md                     # This file
+├── QUICK_START.md                # Quick start guide
+├── build_native.sh               # Native build script
+├── build_wasm.sh                 # WebAssembly build script
+├── screenshot.png                # Viewer screenshot
+├── src/                          # C++ source code
+│   ├── las_parser.h              # LAS file parser interface
+│   ├── las_parser.cpp            # LAS file parser implementation
+│   ├── spatial_index.h           # Octree spatial index interface
+│   ├── spatial_index.cpp         # Octree spatial index implementation
+│   └── wasm_interface.cpp        # WebAssembly exported functions
+├── tests/                        # C++ tests
+│   ├── CMakeLists.txt            # Test configuration
+│   ├── test_main.cpp             # Catch2 main entry point
+│   ├── test_las_parser.cpp       # LAS parser tests
+│   ├── test_spatial_index.cpp    # Spatial index tests
+│   └── test_wasm_interface.cpp   # WASM interface tests
+├── web/                          # Web application
+│   ├── index.html                # Main HTML page
+│   ├── style.css                 # Styles
+│   ├── main.js                   # JavaScript application logic
+│   ├── PointCloudViewer.js       # Main viewer class
+│   ├── CameraController.js       # Camera controls
+│   ├── ColorMapper.js            # Color visualization
+│   ├── PointCloudRenderer.js     # WebGL renderer
+│   ├── WASMLoader.js             # WASM module loader
+│   ├── UIController.js           # UI management
+│   ├── ErrorHandler.js           # Error handling
+│   ├── las_viewer.js             # Generated WASM glue code
+│   └── las_viewer.wasm           # Generated WASM binary
+└── cmake/                        # CMake modules
 ```
 
 ## Testing
@@ -352,20 +311,7 @@ The project includes comprehensive optimizations:
 - **Hot Path Optimization**: Inlined critical functions, optimized queries
 - **Memory Layout**: Structure-of-Arrays for cache efficiency
 - **GPU Optimization**: Smart buffer management, reduced uploads
-
-See [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md) for detailed information.
-
-### Validating Performance
-
-Run the performance test suite to validate targets:
-
-```bash
-./build_wasm.sh
-python3 -m http.server 8000
-# Open http://localhost:8000/web/performance-test.html
-```
-
-See [PERFORMANCE_TESTING_GUIDE.md](PERFORMANCE_TESTING_GUIDE.md) for instructions.
+- **Data Caching**: Point data cached on load to avoid repeated WASM calls
 
 ## Dependencies
 

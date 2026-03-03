@@ -78,7 +78,7 @@ Open your browser to: **http://localhost:8000/web/index.html**
 ### Step 4: Load a LAS File
 
 1. Click the "Choose File" button
-2. Select a LAS file (format 2 with RGB colors)
+2. Select a LAS file (with RGB colors)
 3. Wait for loading and parsing
 4. Interact with the 3D view:
    - **Left-click + drag**: Rotate camera
@@ -87,36 +87,7 @@ Open your browser to: **http://localhost:8000/web/index.html**
 
 ---
 
-## Option 2: Run Performance Tests
-
-### Step 1: Build WASM (same as above)
-
-```bash
-./build_wasm.sh
-```
-
-### Step 2: Start Web Server (same as above)
-
-```bash
-python3 -m http.server 8000
-```
-
-### Step 3: Open Performance Test Page
-
-Open your browser to: **http://localhost:8000/web/performance-test.html**
-
-### Step 4: Run Tests
-
-Click "Run All Tests" to validate:
-- ✓ Load 10M points in < 5 seconds
-- ✓ Render 1M points at 30+ FPS
-- ✓ Memory usage < 2GB
-
-See [PERFORMANCE_TESTING_GUIDE.md](PERFORMANCE_TESTING_GUIDE.md) for details.
-
----
-
-## Option 3: Run C++ Tests (Native Build)
+## Option 2: Run C++ Tests (Native Build)
 
 ### Step 1: Build Native Tests
 
@@ -256,7 +227,6 @@ las-point-cloud-viewer/
 │   └── wasm_interface.cpp     # WASM exports
 ├── web/                       # Web application
 │   ├── index.html             # Main viewer
-│   ├── performance-test.html  # Performance tests
 │   ├── main.js                # Application logic
 │   ├── las_viewer.js          # Generated WASM glue
 │   └── las_viewer.wasm        # Generated WASM binary
@@ -290,11 +260,6 @@ python3 -m http.server 8000
 ```bash
 # Run C++ tests
 ./build_native.sh
-
-# Run performance tests
-./build_wasm.sh
-python3 -m http.server 8000
-# Open http://localhost:8000/web/performance-test.html
 ```
 
 ### Clean Build
@@ -318,16 +283,13 @@ If you don't have LAS files to test with:
 2. **OpenTopography**: https://opentopography.org/
 3. **Sample Data**: Search for "LAS point cloud sample data"
 
-**Note:** This viewer supports LAS format 2 (with RGB colors). Make sure your test files use this format.
-
 ---
 
 ## Next Steps
 
 - Read [README.md](README.md) for full documentation
-- See [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md) for optimization details
-- Check [PERFORMANCE_TESTING_GUIDE.md](PERFORMANCE_TESTING_GUIDE.md) for testing guide
-- Review [.kiro/specs/las-point-cloud-viewer/](./kiro/specs/las-point-cloud-viewer/) for requirements and design
+- Review source code in `src/` and `web/` directories
+- Explore the C++ tests in `tests/` directory
 
 ---
 
@@ -348,7 +310,6 @@ npx http-server -p 8000                  # Node.js server
 
 # URLs
 http://localhost:8000/web/index.html              # Main viewer
-http://localhost:8000/web/performance-test.html   # Performance tests
 
 # Clean
 rm -rf build/                  # Remove all build artifacts
