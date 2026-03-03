@@ -7,10 +7,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 # Emscripten-specific settings
 if(EMSCRIPTEN)
-    # Memory settings for large files (500MB+ LAS files)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1 -s ALLOW_MEMORY_GROWTH=1")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s INITIAL_MEMORY=256MB")  # Start with 256MB
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s MAXIMUM_MEMORY=2GB")    # Allow up to 2GB
+    # Basic WASM settings
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1")
     
     # Release build optimizations
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -s ASSERTIONS=0")
@@ -45,6 +43,11 @@ if(EMSCRIPTEN)
     # Link flags for WASM optimization
     set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\",\"_loadLASFile\",\"_getPointData\",\"_buildSpatialIndex\",\"_queryVisiblePoints\",\"_freeLASData\"]'")
     set(LINK_FLAGS "${LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
+    
+    # Memory settings for large files
+    set(LINK_FLAGS "${LINK_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
+    set(LINK_FLAGS "${LINK_FLAGS} -s INITIAL_MEMORY=268435456")  # 256MB in bytes
+    set(LINK_FLAGS "${LINK_FLAGS} -s MAXIMUM_MEMORY=2147483648")  # 2GB in bytes
     
     # Performance optimizations for release builds
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
