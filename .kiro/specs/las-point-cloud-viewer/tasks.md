@@ -121,14 +121,14 @@ The project structure and build system are complete. The next phase is implement
     - **Property 11: Camera Frustum Update Consistency**
     - **Validates: Requirements 4.2, 6.5**
 
-- [ ] 5. Checkpoint - Ensure C++ core tests pass
+- [x] 5. Checkpoint - Ensure C++ core tests pass
   - Run all C++ unit tests and property tests
   - Verify no memory leaks with valgrind or sanitizers
   - Ensure code compiles without warnings (-Wall -Wextra)
   - Ask the user if questions arise
 
-- [ ] 6. Implement WebAssembly interface (C++)
-  - [ ] 6.1 Create WASM exported functions
+- [x] 6. Implement WebAssembly interface (C++)
+  - [x] 6.1 Create WASM exported functions
     - Implement `loadLASFile(data, size)` - returns header pointer
     - Implement `getPointData(out_count)` - returns point array pointer
     - Implement `buildSpatialIndex()` - constructs octree
@@ -137,17 +137,17 @@ The project structure and build system are complete. The next phase is implement
     - Use `EMSCRIPTEN_KEEPALIVE` macro for exports
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 6.2 Implement memory management for WASM
+  - [x] 6.2 Implement memory management for WASM
     - Use global state for current point cloud and octree
     - Implement proper cleanup in `freeLASData()`
     - Ensure no memory leaks across load/free cycles
     - _Requirements: 2.4_
 
-  - [ ]* 6.3 Write property test for WASM data transfer integrity
+  - [x] 6.3 Write property test for WASM data transfer integrity
     - **Property 5: WASM Data Transfer Integrity**
     - **Validates: Requirements 2.2, 2.3**
 
-  - [ ]* 6.4 Write property test for memory leak prevention
+  - [x] 6.4 Write property test for memory leak prevention
     - **Property 6: Memory Leak Prevention**
     - **Validates: Requirements 2.4**
 
