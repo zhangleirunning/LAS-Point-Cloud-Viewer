@@ -22,7 +22,8 @@ if(EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s FILESYSTEM=0")  # No filesystem needed
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s DISABLE_EXCEPTION_CATCHING=1")  # Reduce exception overhead
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s MALLOC=emmalloc")  # Smaller allocator
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} --closure 1")  # Enable Closure compiler for JS minification
+    # Temporarily disable closure compiler for debugging
+    # set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} --closure 1")  # Enable Closure compiler for JS minification
     
     # Debug build settings
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -s ASSERTIONS=1")
@@ -42,12 +43,11 @@ if(EMSCRIPTEN)
     add_executable(las_viewer ${SOURCES})
     
     # Link flags for WASM optimization
-    set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\"]' -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
+    set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\",\"_loadLASFile\",\"_getPointData\",\"_buildSpatialIndex\",\"_queryVisiblePoints\",\"_freeLASData\"]'")
+    set(LINK_FLAGS "${LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
     
     # Performance optimizations for release builds
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        set(LINK_FLAGS "${LINK_FLAGS} -s AGGRESSIVE_VARIABLE_ELIMINATION=1")  # Remove unused variables
-        set(LINK_FLAGS "${LINK_FLAGS} -s ELIMINATE_DUPLICATE_FUNCTIONS=1")  # Deduplicate functions
         set(LINK_FLAGS "${LINK_FLAGS} -s MODULARIZE=1")  # Create modular output
         set(LINK_FLAGS "${LINK_FLAGS} -s EXPORT_NAME='createLASViewerModule'")  # Named export
     endif()
