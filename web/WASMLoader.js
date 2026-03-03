@@ -42,8 +42,21 @@ export async function loadWASM() {
 function createWASMWrapper(module) {
     // Helper to get typed array views of WASM memory
     const getHeapView = (TypedArray) => {
-        // Emscripten provides HEAP8.buffer which is the underlying ArrayBuffer
-        const buffer = module.HEAP8.buffer;
+        // Emscripten stores the memory buffer in different places depending on version
+        // Try multiple access patterns
+        let buffer;
+        if (module.HEAP8 && module.HEAP8.buffer) {
+            buffer = module.HEAP8.buffer;
+        } else if (module.HEAPU8 && module.HEAPU8.buffer) {
+            buffer = module.HEAPU8.buffer;
+        } else if (module.wasmMemory && module.wasmMemory.buffer) {
+            buffer = module.wasmMemory.buffer;
+        } else if (module.memory && module.memory.buffer) {
+            buffer = module.memory.buffer;
+        } else {
+            console.error('Cannot find WASM memory buffer. Available module properties:', Object.keys(module).filter(k => !k.startsWith('_')).slice(0, 30));
+            throw new Error('Cannot access WASM memory buffer');
+        }
         return new TypedArray(buffer);
     };
     
