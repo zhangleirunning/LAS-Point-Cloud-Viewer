@@ -56,35 +56,35 @@ The project structure and build system are complete. The next phase is implement
     - Test corrupted headers
     - _Requirements: 1.5, 12.1_
 
-- [ ] 3. Implement spatial indexing with octree (C++)
-  - [ ] 3.1 Create octree data structures
+- [x] 3. Implement spatial indexing with octree (C++)
+  - [x] 3.1 Create octree data structures
     - Define BoundingBox struct with intersection methods
     - Define OctreeNode class with children array
     - Define SpatialIndex class interface
     - _Requirements: 3.1_
 
-  - [ ] 3.2 Implement bounding box calculations
+  - [x] 3.2 Implement bounding box calculations
     - Calculate tight bounding box from point set
     - Implement box-box intersection test
     - Implement point-in-box test
     - _Requirements: 11.1_
 
-  - [ ] 3.3 Implement octree construction
+  - [x] 3.3 Implement octree construction
     - Build root node from point cloud bounds
     - Implement recursive subdivision (8 octants)
     - Apply subdivision threshold (e.g., 1000 points per leaf)
     - Enforce maximum depth limit
     - _Requirements: 3.1, 3.4, 11.3_
 
-  - [ ]* 3.4 Write property test for octree spatial partitioning
+  - [x] 3.4 Write property test for octree spatial partitioning
     - **Property 7: Octree Spatial Partitioning**
     - **Validates: Requirements 3.1, 3.4, 11.3**
 
-  - [ ]* 3.5 Write property test for bounding box containment
+  - [x] 3.5 Write property test for bounding box containment
     - **Property 20: Bounding Box Containment**
     - **Validates: Requirements 11.1**
 
-  - [ ]* 3.6 Write unit tests for octree edge cases
+  - [x] 3.6 Write unit tests for octree edge cases
     - Test empty point cloud
     - Test single point
     - Test all points at same location
