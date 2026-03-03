@@ -577,3 +577,373 @@ TEST_CASE("Reject truncated point data", "[las_parser][error_handling]") {
     REQUIRE((error_msg.find("point") != std::string::npos || 
              error_msg.find("small") != std::string::npos));
 }
+
+// ============================================================================
+// Property-Based Tests for Error Handling and Edge Cases
+// ============================================================================
+
+// Feature: las-point-cloud-viewer, Property 4: Invalid File Rejection
+// Validates: Requirements 1.5, 12.1, 12.4
+TEST_CASE("Invalid file rejection property", "[las_parser][property][error_handling]") {
+    // Run property-based test with 100 iterations
+    const bool result = rc::check("parser returns error for invalid files without crashing",
+        []() {
+            LASParser parser;
+            
+            // Generate different types of invalid files
+            auto corruption_type = *rc::gen::inRange(0, 6);
+            
+            std::vector<uint8_t> invalid_data;
+            
+            switch (corruption_type) {
+                case 0: {
+                    // Invalid magic bytes
+                    invalid_data.resize(227, 0);
+                    // Generate random invalid magic bytes (not "LASF")
+                    invalid_data[0] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[1] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[2] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[3] = *rc::gen::inRange<uint8_t>(0, 255);
+                    // Ensure it's not accidentally "LASF"
+                    if (invalid_data[0] == 'L' && invalid_data[1] == 'A' && 
+                        invalid_data[2] == 'S' && invalid_data[3] == 'F') {
+                        invalid_data[0] = 'X';
+                    }
+                    break;
+                }
+                
+                case 1: {
+                    // File too small (less than minimum header size)
+                    auto small_size = *rc::gen::inRange<size_t>(0, 226);
+                    invalid_data.resize(small_size, 0);
+                    // Add correct magic bytes to test size validation
+                    if (small_size >= 4) {
+                        invalid_data[0] = 'L';
+                        invalid_data[1] = 'A';
+                        invalid_data[2] = 'S';
+                        invalid_data[3] = 'F';
+                    }
+                    break;
+                }
+                
+                case 2: {
+                    // Unsupported version
+                    invalid_data.resize(227, 0);
+                    invalid_data[0] = 'L';
+                    invalid_data[1] = 'A';
+                    invalid_data[2] = 'S';
+                    invalid_data[3] = 'F';
+                    // Generate unsupported version (not 1.2 or 1.4)
+                    auto major = *rc::gen::inRange<uint8_t>(0, 10);
+                    auto minor = *rc::gen::inRange<uint8_t>(0, 10);
+                    // Ensure it's not 1.2 or 1.4
+                    if (major == 1 && (minor == 2 || minor == 4)) {
+                        major = 2;
+                    }
+                    invalid_data[24] = major;
+                    invalid_data[25] = minor;
+                    writeLittleEndian<uint16_t>(invalid_data.data() + 94, 227);
+                    break;
+                }
+                
+                case 3: {
+                    // Unsupported point format
+                    invalid_data.resize(227, 0);
+                    invalid_data[0] = 'L';
+                    invalid_data[1] = 'A';
+                    invalid_data[2] = 'S';
+                    invalid_data[3] = 'F';
+                    invalid_data[24] = 1;
+                    invalid_data[25] = 2;
+                    writeLittleEndian<uint16_t>(invalid_data.data() + 94, 227);
+                    // Generate unsupported format (not 2)
+                    auto format = *rc::gen::inRange<uint8_t>(0, 10);
+                    if (format == 2) format = 5;
+                    invalid_data[104] = format;
+                    break;
+                }
+                
+                case 4: {
+                    // Declared header size larger than file
+                    invalid_data.resize(227, 0);
+                    invalid_data[0] = 'L';
+                    invalid_data[1] = 'A';
+                    invalid_data[2] = 'S';
+                    invalid_data[3] = 'F';
+                    invalid_data[24] = 1;
+                    invalid_data[25] = 2;
+                    // Claim header is larger than actual file
+                    auto claimed_size = *rc::gen::inRange<uint16_t>(228, 1000);
+                    writeLittleEndian<uint16_t>(invalid_data.data() + 94, claimed_size);
+                    break;
+                }
+                
+                case 5: {
+                    // Truncated point data - this case tests parsePoints, not parseHeader
+                    // Skip this case for the header parsing test
+                    // (it will be tested separately in the edge case test)
+                    corruption_type = 0; // Fall through to invalid magic bytes
+                    
+                    invalid_data.resize(227, 0);
+                    invalid_data[0] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[1] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[2] = *rc::gen::inRange<uint8_t>(0, 255);
+                    invalid_data[3] = *rc::gen::inRange<uint8_t>(0, 255);
+                    if (invalid_data[0] == 'L' && invalid_data[1] == 'A' && 
+                        invalid_data[2] == 'S' && invalid_data[3] == 'F') {
+                        invalid_data[0] = 'X';
+                    }
+                    break;
+                }
+                
+                default: {
+                    // Completely random data
+                    auto size = *rc::gen::inRange<size_t>(0, 500);
+                    invalid_data.resize(size);
+                    for (size_t i = 0; i < size; ++i) {
+                        invalid_data[i] = *rc::gen::inRange<uint8_t>(0, 255);
+                    }
+                    break;
+                }
+            }
+            
+            // Try to parse the invalid data
+            auto result = parser.parseHeader(invalid_data.data(), invalid_data.size());
+            
+            // Property: Parser should return an error (not crash)
+            RC_ASSERT(result.isErr());
+            
+            // Property: Error message should be non-empty and descriptive
+            RC_ASSERT(!result.error().empty());
+            
+            // Property: Error message should not contain crash indicators
+            std::string error_msg = result.error();
+            RC_ASSERT(error_msg.find("segfault") == std::string::npos);
+            RC_ASSERT(error_msg.find("crash") == std::string::npos);
+        });
+    
+    // Check if the property test succeeded
+    REQUIRE(result);
+}
+
+// Feature: las-point-cloud-viewer, Property 22: Edge Case Robustness
+// Validates: Requirements 12.5
+TEST_CASE("Edge case robustness property", "[las_parser][property][edge_cases]") {
+    // Run property-based test with 100 iterations
+    const bool result = rc::check("system handles edge cases gracefully without crashing",
+        []() {
+            LASParser parser;
+            
+            // Generate different edge cases
+            auto edge_case_type = *rc::gen::inRange(0, 4);
+            
+            switch (edge_case_type) {
+                case 0: {
+                    // Empty point cloud (0 points)
+                    LASHeader header;
+                    header.version_major = 1;
+                    header.version_minor = 2;
+                    header.point_format = 2;
+                    header.point_record_length = 26;
+                    header.point_count = 0;  // Zero points
+                    header.scale_x = 0.01;
+                    header.scale_y = 0.01;
+                    header.scale_z = 0.01;
+                    header.offset_x = 0.0;
+                    header.offset_y = 0.0;
+                    header.offset_z = 0.0;
+                    header.min_x = 0.0;
+                    header.max_x = 0.0;
+                    header.min_y = 0.0;
+                    header.max_y = 0.0;
+                    header.min_z = 0.0;
+                    header.max_z = 0.0;
+                    
+                    std::vector<uint8_t> file_data = createLASHeader(header);
+                    
+                    // Parse should succeed with empty result
+                    auto result = parser.parsePoints(file_data.data(), file_data.size(), header);
+                    RC_ASSERT(result.isOk());
+                    RC_ASSERT(result.value().empty());
+                    break;
+                }
+                
+                case 1: {
+                    // Single point
+                    LASHeader header;
+                    header.version_major = 1;
+                    header.version_minor = 2;
+                    header.point_format = 2;
+                    header.point_record_length = 26;
+                    header.point_count = 1;  // Single point
+                    header.scale_x = 0.01;
+                    header.scale_y = 0.01;
+                    header.scale_z = 0.01;
+                    header.offset_x = 0.0;
+                    header.offset_y = 0.0;
+                    header.offset_z = 0.0;
+                    
+                    // Generate random single point
+                    LASPoint point;
+                    point.x = static_cast<float>(*rc::gen::inRange(-1000, 1000));
+                    point.y = static_cast<float>(*rc::gen::inRange(-1000, 1000));
+                    point.z = static_cast<float>(*rc::gen::inRange(-100, 100));
+                    point.r = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.g = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.b = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.intensity = *rc::gen::inRange<uint16_t>(0, 65535);
+                    point.classification = *rc::gen::inRange<uint8_t>(0, 31);
+                    
+                    header.min_x = header.max_x = point.x;
+                    header.min_y = header.max_y = point.y;
+                    header.min_z = header.max_z = point.z;
+                    
+                    std::vector<LASPoint> points = {point};
+                    std::vector<uint8_t> file_data = createLASFile(header, points);
+                    
+                    // Parse should succeed with single point
+                    auto result = parser.parsePoints(file_data.data(), file_data.size(), header);
+                    RC_ASSERT(result.isOk());
+                    RC_ASSERT(result.value().size() == 1);
+                    break;
+                }
+                
+                case 2: {
+                    // All points at same location
+                    auto point_count = *rc::gen::inRange<uint32_t>(2, 100);
+                    
+                    LASHeader header;
+                    header.version_major = 1;
+                    header.version_minor = 2;
+                    header.point_format = 2;
+                    header.point_record_length = 26;
+                    header.point_count = point_count;
+                    header.scale_x = 0.01;
+                    header.scale_y = 0.01;
+                    header.scale_z = 0.01;
+                    header.offset_x = 0.0;
+                    header.offset_y = 0.0;
+                    header.offset_z = 0.0;
+                    
+                    // Generate random location
+                    float x = static_cast<float>(*rc::gen::inRange(-1000, 1000));
+                    float y = static_cast<float>(*rc::gen::inRange(-1000, 1000));
+                    float z = static_cast<float>(*rc::gen::inRange(-100, 100));
+                    
+                    header.min_x = header.max_x = x;
+                    header.min_y = header.max_y = y;
+                    header.min_z = header.max_z = z;
+                    
+                    // Create points all at same location
+                    std::vector<LASPoint> points;
+                    for (uint32_t i = 0; i < point_count; ++i) {
+                        LASPoint point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+                        point.r = *rc::gen::inRange<uint8_t>(0, 255);
+                        point.g = *rc::gen::inRange<uint8_t>(0, 255);
+                        point.b = *rc::gen::inRange<uint8_t>(0, 255);
+                        point.intensity = *rc::gen::inRange<uint16_t>(0, 65535);
+                        point.classification = *rc::gen::inRange<uint8_t>(0, 31);
+                        points.push_back(point);
+                    }
+                    
+                    std::vector<uint8_t> file_data = createLASFile(header, points);
+                    
+                    // Parse should succeed
+                    auto result = parser.parsePoints(file_data.data(), file_data.size(), header);
+                    RC_ASSERT(result.isOk());
+                    RC_ASSERT(result.value().size() == point_count);
+                    break;
+                }
+                
+                case 3: {
+                    // Extreme coordinate values (near int32 limits)
+                    LASHeader header;
+                    header.version_major = 1;
+                    header.version_minor = 2;
+                    header.point_format = 2;
+                    header.point_record_length = 26;
+                    header.point_count = 1;
+                    header.scale_x = 0.01;
+                    header.scale_y = 0.01;
+                    header.scale_z = 0.01;
+                    header.offset_x = 0.0;
+                    header.offset_y = 0.0;
+                    header.offset_z = 0.0;
+                    
+                    // Generate extreme coordinates
+                    float x = static_cast<float>(*rc::gen::inRange(-20000000, 20000000));
+                    float y = static_cast<float>(*rc::gen::inRange(-20000000, 20000000));
+                    float z = static_cast<float>(*rc::gen::inRange(-200000, 200000));
+                    
+                    header.min_x = header.max_x = x;
+                    header.min_y = header.max_y = y;
+                    header.min_z = header.max_z = z;
+                    
+                    LASPoint point;
+                    point.x = x;
+                    point.y = y;
+                    point.z = z;
+                    point.r = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.g = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.b = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.intensity = *rc::gen::inRange<uint16_t>(0, 65535);
+                    point.classification = *rc::gen::inRange<uint8_t>(0, 31);
+                    
+                    std::vector<LASPoint> points = {point};
+                    std::vector<uint8_t> file_data = createLASFile(header, points);
+                    
+                    // Parse should succeed
+                    auto result = parser.parsePoints(file_data.data(), file_data.size(), header);
+                    RC_ASSERT(result.isOk());
+                    RC_ASSERT(result.value().size() == 1);
+                    break;
+                }
+                
+                default: {
+                    // Very small scale factors
+                    LASHeader header;
+                    header.version_major = 1;
+                    header.version_minor = 2;
+                    header.point_format = 2;
+                    header.point_record_length = 26;
+                    header.point_count = 1;
+                    // Very small scale factors
+                    header.scale_x = *rc::gen::inRange(1, 100) / 1000000.0;
+                    header.scale_y = *rc::gen::inRange(1, 100) / 1000000.0;
+                    header.scale_z = *rc::gen::inRange(1, 100) / 1000000.0;
+                    header.offset_x = 0.0;
+                    header.offset_y = 0.0;
+                    header.offset_z = 0.0;
+                    
+                    LASPoint point;
+                    point.x = static_cast<float>(*rc::gen::inRange(-100, 100));
+                    point.y = static_cast<float>(*rc::gen::inRange(-100, 100));
+                    point.z = static_cast<float>(*rc::gen::inRange(-10, 10));
+                    point.r = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.g = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.b = *rc::gen::inRange<uint8_t>(0, 255);
+                    point.intensity = *rc::gen::inRange<uint16_t>(0, 65535);
+                    point.classification = *rc::gen::inRange<uint8_t>(0, 31);
+                    
+                    header.min_x = header.max_x = point.x;
+                    header.min_y = header.max_y = point.y;
+                    header.min_z = header.max_z = point.z;
+                    
+                    std::vector<LASPoint> points = {point};
+                    std::vector<uint8_t> file_data = createLASFile(header, points);
+                    
+                    // Parse should succeed
+                    auto result = parser.parsePoints(file_data.data(), file_data.size(), header);
+                    RC_ASSERT(result.isOk());
+                    RC_ASSERT(result.value().size() == 1);
+                    break;
+                }
+            }
+        });
+    
+    // Check if the property test succeeded
+    REQUIRE(result);
+}

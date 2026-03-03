@@ -8,8 +8,22 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 # Emscripten-specific settings
 if(EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1 -s ALLOW_MEMORY_GROWTH=1")
+    
+    # Release build optimizations
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -s ASSERTIONS=0")
+    
+    # Enable SIMD for vectorized operations (SSE/NEON equivalent in WASM)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -msimd128")
+    
+    # Minimize binary size
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s FILESYSTEM=0")  # No filesystem needed
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s DISABLE_EXCEPTION_CATCHING=1")  # Reduce exception overhead
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s MALLOC=emmalloc")  # Smaller allocator
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} --closure 1")  # Enable Closure compiler for JS minification
+    
+    # Debug build settings
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -s ASSERTIONS=1")
+    
     set(CMAKE_EXECUTABLE_SUFFIX ".js")
 endif()
 
@@ -23,9 +37,19 @@ set(SOURCES
 # Build WASM target when using Emscripten
 if(EMSCRIPTEN)
     add_executable(las_viewer ${SOURCES})
-    set_target_properties(las_viewer PROPERTIES
-        LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\"]' -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'"
-    )
+    
+    # Link flags for WASM optimization
+    set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\"]' -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
+    
+    # Performance optimizations for release builds
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(LINK_FLAGS "${LINK_FLAGS} -s AGGRESSIVE_VARIABLE_ELIMINATION=1")  # Remove unused variables
+        set(LINK_FLAGS "${LINK_FLAGS} -s ELIMINATE_DUPLICATE_FUNCTIONS=1")  # Deduplicate functions
+        set(LINK_FLAGS "${LINK_FLAGS} -s MODULARIZE=1")  # Create modular output
+        set(LINK_FLAGS "${LINK_FLAGS} -s EXPORT_NAME='createLASViewerModule'")  # Named export
+    endif()
+    
+    set_target_properties(las_viewer PROPERTIES LINK_FLAGS "${LINK_FLAGS}")
 else()
     # Native build for testing
     add_library(las_viewer_lib ${SOURCES})

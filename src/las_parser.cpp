@@ -94,9 +94,10 @@ void LASParser::transformCoordinates(int32_t raw_x, int32_t raw_y, int32_t raw_z
                                      const LASHeader& header,
                                      float& out_x, float& out_y, float& out_z) {
     // Apply LAS coordinate transformation: world_coord = raw_coord * scale + offset
-    out_x = static_cast<float>(raw_x * header.scale_x + header.offset_x);
-    out_y = static_cast<float>(raw_y * header.scale_y + header.offset_y);
-    out_z = static_cast<float>(raw_z * header.scale_z + header.offset_z);
+    // Optimized for SIMD-friendly operations (separate operations allow vectorization)
+    out_x = static_cast<float>(static_cast<double>(raw_x) * header.scale_x + header.offset_x);
+    out_y = static_cast<float>(static_cast<double>(raw_y) * header.scale_y + header.offset_y);
+    out_z = static_cast<float>(static_cast<double>(raw_z) * header.scale_z + header.offset_z);
 }
 
 LASPoint LASParser::parsePointRecord(const uint8_t* record, const LASHeader& header) {

@@ -182,18 +182,63 @@ export class UIController {
     }
     
     /**
-     * Show error message
+     * Show error message with optional details and action
      * @param {string} message - Error message
+     * @param {Object} options - Optional configuration
+     * @param {string} options.details - Additional error details
+     * @param {string} options.action - Suggested action for the user
+     * @param {boolean} options.persistent - If true, don't auto-hide
      */
-    showError(message) {
-        if (this.errorEl) {
-            this.errorEl.textContent = message;
-            this.errorEl.classList.remove('hidden');
-            
-            // Auto-hide after 5 seconds
+    showError(message, options = {}) {
+        if (!this.errorEl) return;
+        
+        // Clear previous content
+        this.errorEl.innerHTML = '';
+        
+        // Create error structure
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'error-content';
+        
+        // Add error icon and main message
+        const mainMessage = document.createElement('div');
+        mainMessage.className = 'error-main';
+        mainMessage.innerHTML = `
+            <span class="error-icon">⚠️</span>
+            <span class="error-message">${this.escapeHtml(message)}</span>
+        `;
+        errorContainer.appendChild(mainMessage);
+        
+        // Add details if provided
+        if (options.details) {
+            const details = document.createElement('div');
+            details.className = 'error-details';
+            details.textContent = options.details;
+            errorContainer.appendChild(details);
+        }
+        
+        // Add suggested action if provided
+        if (options.action) {
+            const action = document.createElement('div');
+            action.className = 'error-action';
+            action.innerHTML = `<strong>💡 Suggestion:</strong> ${this.escapeHtml(options.action)}`;
+            errorContainer.appendChild(action);
+        }
+        
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'error-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.onclick = () => this.hideError();
+        errorContainer.appendChild(closeBtn);
+        
+        this.errorEl.appendChild(errorContainer);
+        this.errorEl.classList.remove('hidden');
+        
+        // Auto-hide after 8 seconds unless persistent
+        if (!options.persistent) {
             setTimeout(() => {
                 this.hideError();
-            }, 5000);
+            }, 8000);
         }
     }
     
@@ -204,6 +249,17 @@ export class UIController {
         if (this.errorEl) {
             this.errorEl.classList.add('hidden');
         }
+    }
+    
+    /**
+     * Escape HTML to prevent XSS
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped text
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     /**

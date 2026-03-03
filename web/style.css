@@ -292,13 +292,81 @@ h1 {
 }
 
 .error {
-    padding: 15px;
+    padding: 0;
     background: #ff4444;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 14px;
     border: 1px solid #cc0000;
+    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
 }
 
 .error.hidden {
     display: none;
+}
+
+.error-content {
+    position: relative;
+    padding: 16px 40px 16px 16px;
+}
+
+.error-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.error-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.error-message {
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.error-details {
+    margin-left: 30px;
+    font-size: 13px;
+    color: #ffdddd;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.error-action {
+    margin-left: 30px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-left: 3px solid #ffcc00;
+}
+
+.error-action strong {
+    color: #ffcc00;
+}
+
+.error-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.error-close:hover {
+    background: rgba(0, 0, 0, 0.2);
 }

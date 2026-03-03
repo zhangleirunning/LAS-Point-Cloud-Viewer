@@ -185,6 +185,10 @@ void main() {
     
     /**
      * Update point data for rendering
+     * Optimized to minimize GPU uploads:
+     * - Uses bufferSubData for small changes (< 10% size difference)
+     * - Uses bufferData for large changes or initial upload
+     * - Reduces memory allocation overhead
      * @param {Float32Array} positions - XYZ coordinates (3 floats per point)
      * @param {Uint8Array} colors - RGB values (3 bytes per point)
      * @param {number} count - Number of points

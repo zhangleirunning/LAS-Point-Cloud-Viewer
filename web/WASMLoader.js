@@ -13,7 +13,7 @@ export async function loadWASM() {
         
         // Check if Emscripten runtime is available
         if (typeof Module === 'undefined') {
-            throw new Error('Emscripten Module not found. Make sure the WASM file is built.');
+            throw new Error('WebAssembly module not found. The application may not be properly built or deployed.');
         }
         
         // Wait for WASM module to be ready
@@ -25,12 +25,12 @@ export async function loadWASM() {
             };
             
             Module.onAbort = (error) => {
-                reject(new Error(`WASM module aborted: ${error}`));
+                reject(new Error(`WebAssembly module initialization failed: ${error}`));
             };
             
             // Set timeout for initialization
             setTimeout(() => {
-                reject(new Error('WASM module initialization timeout'));
+                reject(new Error('WebAssembly module initialization timeout. The module took too long to load.'));
             }, 10000);
         });
         
@@ -42,7 +42,7 @@ export async function loadWASM() {
         
     } catch (error) {
         console.error('Failed to load WASM module:', error);
-        throw new Error(`WASM initialization failed: ${error.message}`);
+        throw new Error(`WebAssembly initialization failed: ${error.message}`);
     }
 }
 
@@ -80,7 +80,7 @@ function createWASMWrapper(module) {
                 // Allocate memory for file data
                 const dataPtr = this.malloc(data.length);
                 if (!dataPtr) {
-                    throw new Error('Failed to allocate memory for file data');
+                    throw new Error('Failed to allocate memory for file data. The file may be too large.');
                 }
                 
                 // Copy data to WASM memory
@@ -93,7 +93,7 @@ function createWASMWrapper(module) {
                 this.free(dataPtr);
                 
                 if (!headerPtr) {
-                    throw new Error('Failed to parse LAS file');
+                    throw new Error('Failed to parse LAS file header. The file may be corrupted or in an unsupported format.');
                 }
                 
                 // Read header from WASM memory
@@ -101,7 +101,7 @@ function createWASMWrapper(module) {
                 
                 return header;
             } catch (error) {
-                throw new Error(`loadLASFile failed: ${error.message}`);
+                throw new Error(`Failed to load LAS file: ${error.message}`);
             }
         },
         
@@ -166,7 +166,7 @@ function createWASMWrapper(module) {
             try {
                 const countPtr = this.malloc(4);
                 if (!countPtr) {
-                    throw new Error('Failed to allocate memory for count');
+                    throw new Error('Failed to allocate memory for point count.');
                 }
                 
                 // Call WASM function
@@ -217,7 +217,7 @@ function createWASMWrapper(module) {
                 
                 return { positions, colors, intensity, classification, count };
             } catch (error) {
-                throw new Error(`getPointData failed: ${error.message}`);
+                throw new Error(`Failed to get point data: ${error.message}`);
             }
         },
         
@@ -228,7 +228,7 @@ function createWASMWrapper(module) {
             try {
                 module._buildSpatialIndex();
             } catch (error) {
-                throw new Error(`buildSpatialIndex failed: ${error.message}`);
+                throw new Error(`Failed to build spatial index: ${error.message}`);
             }
         },
         
@@ -244,7 +244,7 @@ function createWASMWrapper(module) {
                 // Allocate memory for frustum planes
                 const planesPtr = this.malloc(frustumPlanes.length * 4);
                 if (!planesPtr) {
-                    throw new Error('Failed to allocate memory for frustum planes');
+                    throw new Error('Failed to allocate memory for frustum planes.');
                 }
                 
                 // Copy frustum planes to WASM memory
@@ -254,7 +254,7 @@ function createWASMWrapper(module) {
                 const countPtr = this.malloc(4);
                 if (!countPtr) {
                     this.free(planesPtr);
-                    throw new Error('Failed to allocate memory for count');
+                    throw new Error('Failed to allocate memory for point count.');
                 }
                 
                 // Call WASM function
@@ -280,7 +280,7 @@ function createWASMWrapper(module) {
                 
                 return indices;
             } catch (error) {
-                throw new Error(`queryVisiblePoints failed: ${error.message}`);
+                throw new Error(`Failed to query visible points: ${error.message}`);
             }
         },
         

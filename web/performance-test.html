@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAS Point Cloud Viewer - Performance Tests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4a9eff;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(74, 158, 255, 0.2);
+        }
+        
+        .test-section h2 {
+            color: #4a9eff;
+            margin-top: 0;
+        }
+        
+        .test-info {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .test-info strong {
+            color: #4a9eff;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px 10px 10px 0;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #console-output {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            line-height: 1.4;
+            border: 1px solid #333;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.running {
+            background: #ff9800;
+            color: #000;
+        }
+        
+        .status.passed {
+            background: #4caf50;
+            color: #fff;
+        }
+        
+        .status.failed {
+            background: #f44336;
+            color: #fff;
+        }
+        
+        .status.pending {
+            background: #666;
+            color: #fff;
+        }
+        
+        .results-summary {
+            background: rgba(74, 158, 255, 0.1);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .results-summary h3 {
+            margin-top: 0;
+            color: #4a9eff;
+        }
+        
+        .result-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .warning {
+            background: rgba(255, 152, 0, 0.1);
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .warning strong {
+            color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 LAS Point Cloud Viewer</h1>
+        <p class="subtitle">Performance Validation Suite</p>
+        
+        <div class="warning">
+            <strong>⚠️ Note:</strong> These tests require the WASM module to be built and available. 
+            Run <code>./build_wasm.sh</code> first to compile the C++ code to WebAssembly.
+        </div>
+        
+        <div class="test-section">
+            <h2>Performance Requirements</h2>
+            <div class="test-info">
+                <strong>Requirement 7.1:</strong> Load and parse a 10 million point LAS file within 5 seconds on modern hardware
+            </div>
+            <div class="test-info">
+                <strong>Requirement 7.2:</strong> Maintain interactive frame rates (30+ FPS) when rendering visible subsets of large datasets
+            </div>
+            <div class="test-info">
+                <strong>Memory:</strong> Verify reasonable memory usage (< 2GB for 10M points)
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <button id="run-all-btn" onclick="runAllTests()">Run All Tests</button>
+            <button id="run-load-btn" onclick="runLoadTest()">Test Load Time Only</button>
+            <button id="run-render-btn" onclick="runRenderTest()">Test Rendering Only</button>
+            <button id="run-memory-btn" onclick="runMemoryTest()">Test Memory Only</button>
+            <button id="clear-btn" onclick="clearConsole()">Clear Console</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Status</h2>
+            <div class="result-item">
+                <span>Load Time Test (10M points < 5s)</span>
+                <span id="load-status" class="status pending">Pending</span>
+            </div>
+            <div class="result-item">
+                <span>Rendering Test (1M points @ 30+ FPS)</span>
+                <span id="render-status" class="status pending">Pending</span>
+            </div>
+            <div class="result-item">
+                <span>Memory Usage Test</span>
+                <span id="memory-status" class="status pending">Pending</span>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Console Output</h2>
+            <div id="console-output"></div>
+        </div>
+        
+        <div id="results-container"></div>
+    </div>
+    
+    <script type="module">
+        import { PerformanceValidator } from './performance-test.js';
+        
+        let validator = null;
+        const consoleOutput = document.getElementById('console-output');
+        
+        // Intercept console.log to display in page
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function appendToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌ ' : type === 'warn' ? '⚠️  ' : '';
+            consoleOutput.textContent += `[${timestamp}] ${prefix}${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            appendToConsole(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            appendToConsole(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            appendToConsole(args.join(' '), 'warn');
+        };
+        
+        function updateStatus(testId, status) {
+            const element = document.getElementById(`${testId}-status`);
+            element.className = `status ${status}`;
+            element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        
+        function disableButtons(disabled) {
+            document.querySelectorAll('button').forEach(btn => {
+                if (btn.id !== 'clear-btn') {
+                    btn.disabled = disabled;
+                }
+            });
+        }
+        
+        window.runAllTests = async function() {
+            console.log('Starting all performance tests...\n');
+            disableButtons(true);
+            
+            updateStatus('load', 'running');
+            updateStatus('render', 'running');
+            updateStatus('memory', 'running');
+            
+            validator = new PerformanceValidator();
+            
+            try {
+                const results = await validator.runAllTests();
+                
+                updateStatus('load', results.loadTime ? 'passed' : 'failed');
+                updateStatus('render', results.rendering ? 'passed' : 'failed');
+                updateStatus('memory', results.memory ? 'passed' : 'failed');
+                
+                displayResults(results);
+            } catch (error) {
+                console.error('Test suite failed:', error);
+                updateStatus('load', 'failed');
+                updateStatus('render', 'failed');
+                updateStatus('memory', 'failed');
+            }
+            
+            disableButtons(false);
+        };
+        
+        window.runLoadTest = async function() {
+            console.log('Starting load time test...\n');
+            disableButtons(true);
+            updateStatus('load', 'running');
+            
+            validator = new PerformanceValidator();
+            
+            try {
+                const passed = await validator.testLoadTime();
+                updateStatus('load', passed ? 'passed' : 'failed');
+            } catch (error) {
+                console.error('Load test failed:', error);
+                updateStatus('load', 'failed');
+            }
+            
+            disableButtons(false);
+        };
+        
+        window.runRenderTest = async function() {
+            console.log('Starting rendering test...\n');
+            disableButtons(true);
+            updateStatus('render', 'running');
+            
+            validator = new PerformanceValidator();
+            
+            try {
+                const passed = await validator.testRenderingPerformance();
+                updateStatus('render', passed ? 'passed' : 'failed');
+            } catch (error) {
+                console.error('Rendering test failed:', error);
+                updateStatus('render', 'failed');
+            }
+            
+            disableButtons(false);
+        };
+        
+        window.runMemoryTest = async function() {
+            console.log('Starting memory test...\n');
+            disableButtons(true);
+            updateStatus('memory', 'running');
+            
+            validator = new PerformanceValidator();
+            
+            try {
+                const passed = await validator.testMemoryUsage();
+                updateStatus('memory', passed ? 'passed' : 'failed');
+            } catch (error) {
+                console.error('Memory test failed:', error);
+                updateStatus('memory', 'failed');
+            }
+            
+            disableButtons(false);
+        };
+        
+        window.clearConsole = function() {
+            consoleOutput.textContent = '';
+        };
+        
+        function displayResults(results) {
+            const container = document.getElementById('results-container');
+            
+            const html = `
+                <div class="results-summary">
+                    <h3>📊 Test Results Summary</h3>
+                    <div class="result-item">
+                        <span>Load Time:</span>
+                        <span>${results.loadTime ? (results.loadTime / 1000).toFixed(2) + 's' : 'N/A'}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Average FPS:</span>
+                        <span>${results.fps.length > 0 ? (results.fps.reduce((a,b) => a+b, 0) / results.fps.length).toFixed(2) : 'N/A'}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Memory Usage:</span>
+                        <span>${results.memoryUsage ? results.memoryUsage.usedMB + ' MB' : 'N/A'}</span>
+                    </div>
+                    <div class="result-item">
+                        <span><strong>Overall Result:</strong></span>
+                        <span class="status ${results.passed ? 'passed' : 'failed'}">
+                            ${results.passed ? '✓ All Tests Passed' : '✗ Some Tests Failed'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        console.log('Performance test suite loaded and ready.');
+        console.log('Click "Run All Tests" to begin validation.\n');
+    </script>
+</body>
+</html>

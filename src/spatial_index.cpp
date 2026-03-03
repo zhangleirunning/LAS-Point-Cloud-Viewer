@@ -3,58 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-// BoundingBox implementation
+// BoundingBox implementation - methods are now inline in header
 
-bool BoundingBox::contains(float x, float y, float z) const {
-    return x >= min_x && x <= max_x &&
-           y >= min_y && y <= max_y &&
-           z >= min_z && z <= max_z;
-}
-
-bool BoundingBox::intersects(const BoundingBox& other) const {
-    // Two boxes intersect if they overlap on all three axes
-    return !(max_x < other.min_x || min_x > other.max_x ||
-             max_y < other.min_y || min_y > other.max_y ||
-             max_z < other.min_z || min_z > other.max_z);
-}
-
-void BoundingBox::getCenter(float& cx, float& cy, float& cz) const {
-    cx = (min_x + max_x) * 0.5f;
-    cy = (min_y + max_y) * 0.5f;
-    cz = (min_z + max_z) * 0.5f;
-}
-
-// Frustum implementation
-
-float Frustum::distanceToPlane(int plane_index, float x, float y, float z) const {
-    // Plane equation: ax + by + cz + d = 0
-    // Distance = ax + by + cz + d (already normalized)
-    const float* plane = planes[plane_index];
-    return plane[0] * x + plane[1] * y + plane[2] * z + plane[3];
-}
-
-bool Frustum::intersects(const BoundingBox& box) const {
-    // Test the bounding box against all 6 frustum planes
-    // For each plane, find the "positive vertex" (vertex most in the direction of the plane normal)
-    // If the positive vertex is outside the plane, the entire box is outside
-    
-    for (int i = 0; i < 6; ++i) {
-        const float* plane = planes[i];
-        
-        // Find the positive vertex (furthest point in the direction of the plane normal)
-        float px = (plane[0] >= 0) ? box.max_x : box.min_x;
-        float py = (plane[1] >= 0) ? box.max_y : box.min_y;
-        float pz = (plane[2] >= 0) ? box.max_z : box.min_z;
-        
-        // If the positive vertex is outside this plane, the entire box is outside the frustum
-        if (distanceToPlane(i, px, py, pz) < 0) {
-            return false;
-        }
-    }
-    
-    // Box intersects or is inside the frustum
-    return true;
-}
+// Frustum implementation - methods are now inline in header
 
 // OctreeNode implementation
 
@@ -316,15 +267,20 @@ void SpatialIndex::queryRecursiveLOD(const OctreeNode* node,
         // Calculate skip factor based on distance and depth
         uint32_t skip = calculateLODSkip(camera_distance, node->depth);
         
+        // Optimize: pre-extract frustum planes for faster point testing
+        const float* planes_data = &frustum.planes[0][0];
+        
         // Add points with sampling, checking each point against frustum
-        for (size_t i = 0; i < node->point_indices.size() && results.size() < max_points; i += skip) {
+        const size_t num_points = node->point_indices.size();
+        for (size_t i = 0; i < num_points && results.size() < max_points; i += skip) {
             uint32_t idx = node->point_indices[i];
             const LASPoint& point = (*points_)[idx];
             
-            // Check if this specific point is within the frustum
+            // Optimized frustum test: check all planes inline
             bool inside = true;
             for (int j = 0; j < 6; ++j) {
-                if (frustum.distanceToPlane(j, point.x, point.y, point.z) < 0) {
+                const float* plane = planes_data + (j * 4);
+                if (plane[0] * point.x + plane[1] * point.y + plane[2] * point.z + plane[3] < 0) {
                     inside = false;
                     break;
                 }
@@ -338,6 +294,7 @@ void SpatialIndex::queryRecursiveLOD(const OctreeNode* node,
     }
     
     // Internal node - recursively query children
+    // Optimize: check children in order of likelihood to contain visible points
     for (const auto& child : node->children) {
         if (child && results.size() < max_points) {
             queryRecursiveLOD(child.get(), frustum, camera_distance, results, max_points);

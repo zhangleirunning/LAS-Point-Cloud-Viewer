@@ -73,11 +73,11 @@ export class PointCloudViewer {
      */
     async loadFile(file) {
         if (!this.isInitialized) {
-            throw new Error('Viewer not initialized');
+            throw new Error('Viewer not initialized. Please wait for the application to finish loading.');
         }
         
         if (!this.wasmModule) {
-            throw new Error('WASM module not loaded');
+            throw new Error('WebAssembly module not loaded. Please refresh the page and try again.');
         }
         
         try {
@@ -91,7 +91,7 @@ export class PointCloudViewer {
             const header = this.wasmModule.loadLASFile(uint8Array);
             
             if (!header || !header.pointCount) {
-                throw new Error('Invalid LAS file or failed to parse header');
+                throw new Error('Failed to parse LAS file. The file may be corrupted or in an unsupported format.');
             }
             
             console.log('LAS header parsed:', header);
@@ -125,13 +125,23 @@ export class PointCloudViewer {
             return this.metadata;
         } catch (error) {
             console.error('Failed to load file:', error);
-            // Re-throw with more context
-            if (error.message.includes('magic')) {
-                throw new Error('Invalid LAS file format. Please select a valid .las file.');
-            } else if (error.message.includes('truncated') || error.message.includes('size')) {
-                throw new Error('File appears to be corrupted or truncated.');
+            
+            // Provide more specific error messages based on error type
+            const errorMessage = error.message || String(error);
+            
+            if (errorMessage.includes('magic')) {
+                throw new Error('Invalid LAS magic bytes. The file does not appear to be a valid LAS format file.');
+            } else if (errorMessage.includes('version')) {
+                throw new Error(errorMessage); // Pass through version error as-is
+            } else if (errorMessage.includes('format')) {
+                throw new Error(errorMessage); // Pass through format error as-is
+            } else if (errorMessage.includes('truncated') || errorMessage.includes('too small')) {
+                throw new Error('File appears to be corrupted or truncated. The file size is smaller than expected.');
+            } else if (errorMessage.includes('memory') || errorMessage.includes('allocation')) {
+                throw new Error('Out of memory. The file may be too large to load in the browser.');
             } else {
-                throw new Error(`Failed to load file: ${error.message}`);
+                // Re-throw original error if we don't have a specific handler
+                throw error;
             }
         }
     }

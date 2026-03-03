@@ -10,6 +10,7 @@
 
 import { PointCloudViewer } from './PointCloudViewer.js';
 import { UIController } from './UIController.js';
+import { ErrorHandler } from './ErrorHandler.js';
 
 // Application state
 let viewer = null;
@@ -56,7 +57,10 @@ async function initializeApp() {
     } catch (error) {
         console.error('Failed to initialize application:', error);
         if (uiController) {
-            uiController.showError(`Initialization failed: ${error.message}`);
+            ErrorHandler.handleError(error, uiController, 'initialization');
+        } else {
+            // Fallback if UI controller isn't available
+            alert(`Failed to initialize application: ${error.message}`);
         }
     }
 }
@@ -71,9 +75,27 @@ async function handleFileSelected(file) {
     }
     
     try {
-        // Validate file extension
-        if (!file.name.toLowerCase().endsWith('.las')) {
-            throw new Error('Please select a valid LAS file');
+        // Validate file before attempting to load
+        const validationError = ErrorHandler.validateFile(file);
+        if (validationError) {
+            // Show validation error but allow large files to proceed with warning
+            if (validationError.category === ErrorHandler.CATEGORIES.FILE_SIZE && 
+                file.size > 0 && file.size >= 227) {
+                // Just show warning for large files, don't block
+                uiController.showError(validationError.message, {
+                    details: validationError.details,
+                    action: validationError.action
+                });
+                // Continue with loading after brief delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } else {
+                // Block loading for other validation errors
+                uiController.showError(validationError.message, {
+                    details: validationError.details,
+                    action: validationError.action
+                });
+                return;
+            }
         }
         
         // Show loading indicator
@@ -102,7 +124,7 @@ async function handleFileSelected(file) {
     } catch (error) {
         console.error('Failed to load file:', error);
         uiController.hideLoading();
-        uiController.showError(`Failed to load file: ${error.message}`);
+        ErrorHandler.handleError(error, uiController, 'file_load');
     }
 }
 
@@ -121,7 +143,7 @@ function handleColorModeChanged(mode) {
     } catch (error) {
         console.error('Failed to change color mode:', error);
         if (uiController) {
-            uiController.showError(`Failed to change color mode: ${error.message}`);
+            ErrorHandler.handleError(error, uiController, 'color_mode_change');
         }
     }
 }

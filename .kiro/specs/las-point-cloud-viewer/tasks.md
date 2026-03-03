@@ -294,39 +294,39 @@ The project structure and build system are complete. The next phase is implement
     - Update colors when mode changes
     - _Requirements: 8.5_
 
-  - [ ]* 12.4 Write property test for color mode application
+  - [x] 12.4 Write property test for color mode application
     - **Property 19: Color Mode Application**
     - **Validates: Requirements 8.5**
 
-- [ ] 13. Implement error handling and edge cases
-  - [ ]* 13.1 Write property test for invalid file rejection
+- [x] 13. Implement error handling and edge cases
+  - [x] 13.1 Write property test for invalid file rejection
     - **Property 4: Invalid File Rejection**
     - **Validates: Requirements 1.5, 12.1, 12.4**
 
-  - [ ]* 13.2 Write property test for edge case robustness
+  - [x] 13.2 Write property test for edge case robustness
     - **Property 22: Edge Case Robustness**
     - **Validates: Requirements 12.5**
 
-  - [ ] 13.3 Add user-friendly error messages
+  - [x] 13.3 Add user-friendly error messages
     - Display errors in UI instead of console
     - Provide actionable error messages
     - Handle all error paths gracefully
     - _Requirements: 12.1, 12.3_
 
-- [ ] 14. Performance optimization and validation
-  - [ ] 14.1 Optimize WASM compilation flags
+- [x] 14. Performance optimization and validation
+  - [x] 14.1 Optimize WASM compilation flags
     - Enable -O3 optimization for release builds
     - Enable SIMD if beneficial
     - Minimize WASM binary size
     - _Requirements: 2.5, 7.1_
 
-  - [ ] 14.2 Profile and optimize hot paths
+  - [x] 14.2 Profile and optimize hot paths
     - Profile octree queries
     - Optimize coordinate transformations
     - Minimize GPU uploads
     - _Requirements: 7.2, 7.4, 7.5_
 
-  - [ ] 14.3 Validate performance targets
+  - [x] 14.3 Validate performance targets
     - Test with 10M point file (should load in < 5 seconds)
     - Test rendering with 1M visible points (should maintain 30+ FPS)
     - Verify memory usage is reasonable

@@ -13,13 +13,28 @@ struct BoundingBox {
     float max_x, max_y, max_z;
     
     // Check if a point is contained within this bounding box
-    bool contains(float x, float y, float z) const;
+    // Inline for performance in hot paths
+    inline bool contains(float x, float y, float z) const {
+        return x >= min_x && x <= max_x &&
+               y >= min_y && y <= max_y &&
+               z >= min_z && z <= max_z;
+    }
     
     // Check if this bounding box intersects with another
-    bool intersects(const BoundingBox& other) const;
+    // Inline for performance in hot paths
+    inline bool intersects(const BoundingBox& other) const {
+        return !(max_x < other.min_x || min_x > other.max_x ||
+                 max_y < other.min_y || min_y > other.max_y ||
+                 max_z < other.min_z || min_z > other.max_z);
+    }
     
     // Get the center point of the bounding box
-    void getCenter(float& cx, float& cy, float& cz) const;
+    // Inline for performance in hot paths
+    inline void getCenter(float& cx, float& cy, float& cz) const {
+        cx = (min_x + max_x) * 0.5f;
+        cy = (min_y + max_y) * 0.5f;
+        cz = (min_z + max_z) * 0.5f;
+    }
 };
 
 // Frustum structure for view frustum culling
@@ -30,11 +45,37 @@ struct Frustum {
     
     // Calculate signed distance from a point to a plane
     // Positive distance means point is on the "inside" of the plane
-    float distanceToPlane(int plane_index, float x, float y, float z) const;
+    // Inline for performance in hot paths
+    inline float distanceToPlane(int plane_index, float x, float y, float z) const {
+        const float* plane = planes[plane_index];
+        return plane[0] * x + plane[1] * y + plane[2] * z + plane[3];
+    }
     
     // Test if a bounding box intersects with the frustum
     // Returns true if the box is at least partially inside the frustum
-    bool intersects(const BoundingBox& box) const;
+    // Inline for performance in hot paths
+    inline bool intersects(const BoundingBox& box) const {
+        // Test the bounding box against all 6 frustum planes
+        // For each plane, find the "positive vertex" (vertex most in the direction of the plane normal)
+        // If the positive vertex is outside the plane, the entire box is outside
+        
+        for (int i = 0; i < 6; ++i) {
+            const float* plane = planes[i];
+            
+            // Find the positive vertex (furthest point in the direction of the plane normal)
+            float px = (plane[0] >= 0) ? box.max_x : box.min_x;
+            float py = (plane[1] >= 0) ? box.max_y : box.min_y;
+            float pz = (plane[2] >= 0) ? box.max_z : box.min_z;
+            
+            // If the positive vertex is outside this plane, the entire box is outside the frustum
+            if (plane[0] * px + plane[1] * py + plane[2] * pz + plane[3] < 0) {
+                return false;
+            }
+        }
+        
+        // Box intersects or is inside the frustum
+        return true;
+    }
 };
 
 // Octree node for spatial partitioning
