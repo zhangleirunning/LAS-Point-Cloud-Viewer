@@ -95,8 +95,8 @@ function createWASMWrapper(module) {
                     const targetOffset = dataPtr + offset;
                     
                     // Get fresh heap view for each chunk (memory may have grown during malloc)
-                    // Access module.HEAPU8 directly to get the current view
-                    const heap = module.HEAPU8;
+                    // Use the wrapper's getter to access the current heap view
+                    const heap = this.HEAPU8;
                     
                     // Verify we have enough space
                     if (targetOffset + chunk.length > heap.length) {
