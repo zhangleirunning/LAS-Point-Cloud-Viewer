@@ -3,6 +3,7 @@
  * Coordinates between WASM module, renderer, camera, and UI
  */
 import { loadWASM, copyToWASM } from './WASMLoader.js';
+import { PointCloudRenderer } from './PointCloudRenderer.js';
 
 export class PointCloudViewer {
     constructor(canvas) {
@@ -43,9 +44,10 @@ export class PointCloudViewer {
             this.wasmModule = await loadWASM();
             console.log('WASM module loaded');
             
-            // Renderer will be initialized in task 8
-            // this.renderer = new PointCloudRenderer(this.canvas);
-            // this.renderer.initialize();
+            // Initialize renderer
+            this.renderer = new PointCloudRenderer(this.canvas);
+            this.renderer.initialize();
+            console.log('Renderer initialized');
             
             // Camera will be initialized in task 9
             // this.camera = new CameraController();
@@ -237,8 +239,8 @@ export class PointCloudViewer {
         }
         
         if (this.renderer) {
-            // Clean up WebGL resources (will be implemented in task 8)
-            // this.renderer.dispose();
+            // Clean up WebGL resources
+            this.renderer.dispose();
         }
     }
 }

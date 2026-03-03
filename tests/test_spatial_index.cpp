@@ -478,7 +478,7 @@ TEST_CASE("Property 8: Spatial Query Correctness", "[spatial_index][property]") 
         
         // Generate a random frustum that intersects the point cloud
         // For simplicity, we'll create a frustum from a bounding box subset
-        BoundingBox cloud_bounds = index.getBounds();
+        // (cloud_bounds could be used for reference but not needed here)
         
         // Create a query region within or overlapping the point cloud
         float query_min_x = static_cast<float>(*rc::gen::inRange(-600, 400));
@@ -854,8 +854,8 @@ TEST_CASE("Property 11: Camera Frustum Update Consistency", "[spatial_index][pro
         SpatialIndex index;
         index.build(points);
         
-        // Get the actual bounds of the point cloud
-        BoundingBox cloud_bounds = index.getBounds();
+        // Get the actual bounds of the point cloud (for reference)
+        // (cloud_bounds could be used for validation but not needed here)
         
         // Create initial frustum (Frustum 1) - a box-shaped frustum
         float frustum1_min_x = static_cast<float>(*rc::gen::inRange(-600, 0));

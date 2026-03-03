@@ -3,6 +3,7 @@ add_executable(las_viewer_tests
     test_main.cpp
     test_las_parser.cpp
     test_spatial_index.cpp
+    test_wasm_interface.cpp
 )
 
 target_link_libraries(las_viewer_tests

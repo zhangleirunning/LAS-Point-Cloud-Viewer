@@ -137,7 +137,6 @@ Result<std::vector<LASPoint>, std::string> LASParser::parsePoints(
     
     // Calculate offset to point data (after header)
     // For LAS 1.2, header size is typically 227 bytes
-    uint16_t header_size = readLittleEndian<uint16_t>(data + 94);
     uint32_t point_data_offset = readLittleEndian<uint32_t>(data + 96);
     
     // Validate we have enough data
