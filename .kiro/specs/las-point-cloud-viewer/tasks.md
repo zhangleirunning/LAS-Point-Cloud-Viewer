@@ -205,34 +205,34 @@ The project structure and build system are complete. The next phase is implement
     - **Property 12: Color Data Preservation**
     - **Validates: Requirements 5.2**
 
-- [ ] 9. Implement camera controller (JavaScript)
-  - [ ] 9.1 Create camera state management
+- [x] 9. Implement camera controller (JavaScript)
+  - [x] 9.1 Create camera state management
     - Store camera position, target, up vector
     - Store spherical coordinates (distance, azimuth, elevation)
     - Implement view matrix calculation (lookAt)
     - Implement projection matrix calculation (perspective)
     - _Requirements: 5.3_
 
-  - [ ] 9.2 Implement mouse input handlers
+  - [x] 9.2 Implement mouse input handlers
     - Handle left-button drag for orbit rotation
     - Handle right-button drag for panning
     - Handle mouse wheel for zoom
     - Prevent default browser behaviors
     - _Requirements: 6.1, 6.2, 6.3_
 
-  - [ ] 9.3 Implement camera constraints
+  - [x] 9.3 Implement camera constraints
     - Clamp distance to valid range (0.1 to 1000)
     - Clamp elevation to [-89°, 89°] to prevent gimbal lock
     - Validate all camera state updates
     - _Requirements: 6.4_
 
-  - [ ] 9.4 Implement frustum extraction
+  - [x] 9.4 Implement frustum extraction
     - Calculate view-projection matrix
     - Extract 6 frustum planes from matrix
     - Return as Float32Array for WASM interface
     - _Requirements: 6.5_
 
-  - [ ]* 9.5 Write property tests for camera behaviors
+  - [x] 9.5 Write property tests for camera behaviors
     - **Property 13: Camera Orbit Behavior**
     - **Property 14: Camera Pan Behavior**
     - **Property 15: Camera Zoom Behavior**

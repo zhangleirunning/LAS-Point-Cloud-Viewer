@@ -4,6 +4,7 @@
  */
 import { loadWASM, copyToWASM } from './WASMLoader.js';
 import { PointCloudRenderer } from './PointCloudRenderer.js';
+import { CameraController } from './CameraController.js';
 
 export class PointCloudViewer {
     constructor(canvas) {
@@ -49,8 +50,9 @@ export class PointCloudViewer {
             this.renderer.initialize();
             console.log('Renderer initialized');
             
-            // Camera will be initialized in task 9
-            // this.camera = new CameraController();
+            // Initialize camera controller
+            this.camera = new CameraController(this.canvas);
+            console.log('Camera controller initialized');
             
             this.isInitialized = true;
             console.log('PointCloudViewer initialized');
@@ -104,8 +106,8 @@ export class PointCloudViewer {
             this.wasmModule.buildSpatialIndex();
             console.log('Spatial index built');
             
-            // Center camera on point cloud (will be implemented in task 9)
-            // this.centerCamera();
+            // Center camera on point cloud
+            this.centerCamera();
             
             this.isFileLoaded = true;
             
@@ -148,26 +150,28 @@ export class PointCloudViewer {
         this.updateFPS();
         
         if (this.isFileLoaded && this.renderer && this.camera) {
-            // Query visible points from WASM
-            // const frustumPlanes = this.camera.getFrustumPlanes();
-            // const visibleIndices = this.wasmModule.queryVisiblePoints(
-            //     frustumPlanes,
-            //     this.camera.distance,
-            //     1000000 // max points
-            // );
+            // Get camera matrices
+            const viewMatrix = this.camera.getViewMatrix();
+            const projMatrix = this.camera.getProjectionMatrix();
             
-            // this.stats.visiblePoints = visibleIndices.length;
+            // Query visible points from WASM
+            const frustumPlanes = this.camera.getFrustumPlanes();
+            const visibleIndices = this.wasmModule.queryVisiblePoints(
+                frustumPlanes,
+                this.camera.distance,
+                1000000 // max points
+            );
+            
+            this.stats.visiblePoints = visibleIndices.length;
             
             // Get point data for visible indices
-            // const pointData = this.getPointsForIndices(visibleIndices);
+            const pointData = this.getPointsForIndices(visibleIndices);
             
             // Update renderer with visible points
-            // this.renderer.updatePointData(pointData.positions, pointData.colors, visibleIndices.length);
+            this.renderer.updatePointData(pointData.positions, pointData.colors, visibleIndices.length);
             
             // Render frame
-            // const viewMatrix = this.camera.getViewMatrix();
-            // const projMatrix = this.camera.getProjectionMatrix();
-            // this.renderer.render(viewMatrix, projMatrix);
+            this.renderer.render(viewMatrix, projMatrix);
         }
         
         // Request next frame
