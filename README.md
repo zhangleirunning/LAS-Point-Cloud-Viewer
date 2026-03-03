@@ -9,7 +9,7 @@ A browser-based 3D point cloud visualization tool that demonstrates Modern C++, 
 
 - [Overview](#overview)
 - [Features](#features)
-- [Demo](#demo)
+- [Sample Data](#sample-data)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -22,7 +22,6 @@ A browser-based 3D point cloud visualization tool that demonstrates Modern C++, 
 - [Dependencies](#dependencies)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
-- [License](#license)
 
 ## Overview
 
@@ -403,24 +402,6 @@ Check browser compatibility and ensure hardware acceleration is enabled in brows
 - Try using a 64-bit browser
 - Consider downsampling very large files
 
-## Contributing
-
-This is a portfolio project, but suggestions and feedback are welcome! Feel free to:
-- Open issues for bugs or feature requests
-- Submit pull requests with improvements
-- Share your experience using the viewer
-
-## Roadmap
-
-Potential future enhancements:
-- [ ] Support for additional point cloud formats (PLY, PCD, E57)
-- [ ] Point cloud editing tools (selection, filtering, classification)
-- [ ] Measurement tools (distance, area, volume)
-- [ ] Export functionality (screenshots, filtered data)
-- [ ] Web Workers for background processing
-- [ ] Progressive loading for very large files
-- [ ] Mobile device support with touch controls
-
 ## Technical Details
 
 ### Algorithms Implemented
@@ -446,29 +427,3 @@ Tested and working on:
 - ✓ Edge 90+ (Windows)
 
 Requires WebGL 2.0 support (available in all modern browsers).
-
-## License
-
-This project is created for educational and portfolio purposes.
-
-## Author
-
-Created to demonstrate skills relevant to the Esri ArcGIS Pro 3D Analysis position.
-
-## Acknowledgments
-
-- LAS format specification: ASPRS (American Society for Photogrammetry and Remote Sensing)
-- Emscripten: The LLVM-to-WebAssembly compiler
-- Catch2 and RapidCheck: Testing frameworks
-- WebGL: Khronos Group
-
-## Contact
-
-For questions or feedback about this project:
-- GitHub: [your-github-username]
-- Email: [your-email]
-- LinkedIn: [your-linkedin]
-
----
-
-**Note**: This project was created to demonstrate technical skills relevant to 3D geospatial analysis and visualization positions. It showcases proficiency in Modern C++, computational geometry, 3D graphics programming, and performance optimization with large datasets.
