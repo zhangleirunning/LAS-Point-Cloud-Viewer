@@ -1,0 +1,2 @@
+# Hide .gitignore from GitHub linguist statistics and file browser
+.gitignore linguist-generated=true
