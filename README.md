@@ -2,8 +2,8 @@
 
 A browser-based 3D point cloud visualization tool that demonstrates Modern C++, 3D graphics programming, and computational geometry skills. This project parses LAS format point cloud data using C++ compiled to WebAssembly and renders it efficiently in a web browser using WebGL.
 
-![Point Cloud Viewer Demo](docs/demo.gif)
-*Interactive 3D visualization of LiDAR point cloud data in the browser*
+![Point Cloud Viewer Screenshot](screenshot.png)
+*Interactive 3D visualization of Mount Rainier LiDAR point cloud data (3.3M points) with elevation-based coloring*
 
 ## Table of Contents
 
