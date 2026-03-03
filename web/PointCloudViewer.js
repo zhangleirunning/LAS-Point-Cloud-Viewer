@@ -5,6 +5,7 @@
 import { loadWASM, copyToWASM } from './WASMLoader.js';
 import { PointCloudRenderer } from './PointCloudRenderer.js';
 import { CameraController } from './CameraController.js';
+import { ColorMapper } from './ColorMapper.js';
 
 export class PointCloudViewer {
     constructor(canvas) {
@@ -17,6 +18,9 @@ export class PointCloudViewer {
         this.isInitialized = false;
         this.isFileLoaded = false;
         this.isRendering = false;
+        
+        // Color mode
+        this.colorMode = ColorMapper.MODES.RGB;
         
         // Statistics
         this.stats = {
@@ -83,12 +87,16 @@ export class PointCloudViewer {
             
             console.log(`Loading LAS file: ${file.name} (${uint8Array.length} bytes)`);
             
-            // Load file through WASM
+            // Load file through WASM - this copies data to WASM memory and parses header
             const header = this.wasmModule.loadLASFile(uint8Array);
+            
+            if (!header || !header.pointCount) {
+                throw new Error('Invalid LAS file or failed to parse header');
+            }
             
             console.log('LAS header parsed:', header);
             
-            // Store metadata
+            // Store metadata for UI display
             this.metadata = {
                 pointCount: header.pointCount,
                 fileSize: file.size,
@@ -101,12 +109,14 @@ export class PointCloudViewer {
             
             this.stats.pointCount = header.pointCount;
             
-            // Build spatial index
+            // Build spatial index (octree) for efficient queries
             console.log('Building spatial index...');
+            const startTime = performance.now();
             this.wasmModule.buildSpatialIndex();
-            console.log('Spatial index built');
+            const buildTime = performance.now() - startTime;
+            console.log(`Spatial index built in ${buildTime.toFixed(2)}ms`);
             
-            // Center camera on point cloud
+            // Center camera on point cloud bounds
             this.centerCamera();
             
             this.isFileLoaded = true;
@@ -115,7 +125,14 @@ export class PointCloudViewer {
             return this.metadata;
         } catch (error) {
             console.error('Failed to load file:', error);
-            throw error;
+            // Re-throw with more context
+            if (error.message.includes('magic')) {
+                throw new Error('Invalid LAS file format. Please select a valid .las file.');
+            } else if (error.message.includes('truncated') || error.message.includes('size')) {
+                throw new Error('File appears to be corrupted or truncated.');
+            } else {
+                throw new Error(`Failed to load file: ${error.message}`);
+            }
         }
     }
     
@@ -150,28 +167,48 @@ export class PointCloudViewer {
         this.updateFPS();
         
         if (this.isFileLoaded && this.renderer && this.camera) {
-            // Get camera matrices
-            const viewMatrix = this.camera.getViewMatrix();
-            const projMatrix = this.camera.getProjectionMatrix();
-            
-            // Query visible points from WASM
-            const frustumPlanes = this.camera.getFrustumPlanes();
-            const visibleIndices = this.wasmModule.queryVisiblePoints(
-                frustumPlanes,
-                this.camera.distance,
-                1000000 // max points
-            );
-            
-            this.stats.visiblePoints = visibleIndices.length;
-            
-            // Get point data for visible indices
-            const pointData = this.getPointsForIndices(visibleIndices);
-            
-            // Update renderer with visible points
-            this.renderer.updatePointData(pointData.positions, pointData.colors, visibleIndices.length);
-            
-            // Render frame
-            this.renderer.render(viewMatrix, projMatrix);
+            try {
+                // Get camera matrices
+                const viewMatrix = this.camera.getViewMatrix();
+                const projMatrix = this.camera.getProjectionMatrix();
+                
+                // Get frustum planes from camera for culling
+                const frustumPlanes = this.camera.getFrustumPlanes();
+                
+                // Query visible points from WASM using frustum culling and LOD
+                const maxPoints = 1000000; // Maximum points to render per frame
+                const visibleIndices = this.wasmModule.queryVisiblePoints(
+                    frustumPlanes,
+                    this.camera.distance,
+                    maxPoints
+                );
+                
+                this.stats.visiblePoints = visibleIndices.length;
+                
+                // Get point data for visible indices
+                const pointData = this.getPointsForIndices(visibleIndices);
+                
+                // Update renderer with visible points
+                this.renderer.updatePointData(
+                    pointData.positions, 
+                    pointData.colors, 
+                    visibleIndices.length
+                );
+                
+                // Render frame
+                this.renderer.render(viewMatrix, projMatrix);
+            } catch (error) {
+                console.error('Error during render:', error);
+                // Continue rendering even if there's an error
+            }
+        } else {
+            // Clear the canvas if no file is loaded
+            if (this.renderer) {
+                const gl = this.renderer.gl;
+                if (gl) {
+                    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                }
+            }
         }
         
         // Request next frame
@@ -186,6 +223,7 @@ export class PointCloudViewer {
         const currentTime = performance.now();
         const elapsed = currentTime - this.stats.lastTime;
         
+        // Update FPS every second
         if (elapsed >= 1000) {
             this.stats.fps = Math.round((this.stats.frameCount * 1000) / elapsed);
             this.stats.frameCount = 0;
@@ -229,6 +267,72 @@ export class PointCloudViewer {
         
         this.camera.distance = maxSize * 2;
         this.camera.updatePosition();
+    }
+    
+    /**
+     * Get point data for specific indices
+     * @param {Uint32Array} indices - Array of point indices
+     * @returns {Object} Object with positions and colors arrays
+     */
+    getPointsForIndices(indices) {
+        if (!this.wasmModule || indices.length === 0) {
+            return {
+                positions: new Float32Array(0),
+                colors: new Uint8Array(0)
+            };
+        }
+        
+        // Get all point data from WASM
+        const allPointData = this.wasmModule.getPointData();
+        
+        // Extract data for requested indices
+        const positions = new Float32Array(indices.length * 3);
+        const colors = new Uint8Array(indices.length * 3);
+        const intensity = new Uint16Array(indices.length);
+        const classification = new Uint8Array(indices.length);
+        
+        for (let i = 0; i < indices.length; i++) {
+            const idx = indices[i];
+            
+            // Copy position (XYZ)
+            positions[i * 3] = allPointData.positions[idx * 3];
+            positions[i * 3 + 1] = allPointData.positions[idx * 3 + 1];
+            positions[i * 3 + 2] = allPointData.positions[idx * 3 + 2];
+            
+            // Copy color (RGB)
+            colors[i * 3] = allPointData.colors[idx * 3];
+            colors[i * 3 + 1] = allPointData.colors[idx * 3 + 1];
+            colors[i * 3 + 2] = allPointData.colors[idx * 3 + 2];
+            
+            // Copy intensity
+            intensity[i] = allPointData.intensity[idx];
+            
+            // Copy classification
+            classification[i] = allPointData.classification[idx];
+        }
+        
+        // Apply color mode mapping
+        const mappedColors = ColorMapper.applyColorMode(
+            this.colorMode,
+            { positions, colors, intensity, classification },
+            indices.length,
+            this.metadata ? this.metadata.bounds : { minZ: 0, maxZ: 1 }
+        );
+        
+        return { positions, colors: mappedColors };
+    }
+    
+    /**
+     * Set color visualization mode
+     * @param {string} mode - Color mode (rgb, elevation, intensity, classification)
+     */
+    setColorMode(mode) {
+        if (Object.values(ColorMapper.MODES).includes(mode)) {
+            this.colorMode = mode;
+            console.log(`Color mode changed to: ${mode}`);
+        } else {
+            console.warn(`Invalid color mode: ${mode}`);
+        }
     }
     
     /**

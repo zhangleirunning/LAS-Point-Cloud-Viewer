@@ -141,6 +141,74 @@ h1 {
     color: #fff;
 }
 
+.color-mode-section {
+    padding: 15px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #444;
+}
+
+.color-mode-section.hidden {
+    display: none;
+}
+
+.color-mode-section h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #fff;
+}
+
+.color-mode-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.color-mode-option {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background: #1a1a1a;
+    border: 2px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.color-mode-option:hover {
+    border-color: #2a7de1;
+    background: #222;
+}
+
+.color-mode-option input[type="radio"] {
+    display: none;
+}
+
+.color-mode-option input[type="radio"]:checked + .color-mode-label {
+    color: #2a7de1;
+}
+
+.color-mode-option input[type="radio"]:checked ~ .color-mode-desc {
+    color: #aaa;
+}
+
+.color-mode-option:has(input[type="radio"]:checked) {
+    border-color: #2a7de1;
+    background: #1f2a3a;
+}
+
+.color-mode-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.color-mode-desc {
+    font-size: 12px;
+    color: #666;
+}
+
 .metadata-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

@@ -160,7 +160,7 @@ function createWASMWrapper(module) {
         
         /**
          * Get point data from WASM
-         * @returns {Object} Point data arrays
+         * @returns {Object} Point data arrays (positions, colors, intensity, classification)
          */
         getPointData: function() {
             try {
@@ -177,7 +177,13 @@ function createWASMWrapper(module) {
                 this.free(countPtr);
                 
                 if (!dataPtr || count === 0) {
-                    return { positions: new Float32Array(0), colors: new Uint8Array(0), count: 0 };
+                    return { 
+                        positions: new Float32Array(0), 
+                        colors: new Uint8Array(0),
+                        intensity: new Uint16Array(0),
+                        classification: new Uint8Array(0),
+                        count: 0 
+                    };
                 }
                 
                 // Read point data (structure-of-arrays layout)
@@ -186,6 +192,8 @@ function createWASMWrapper(module) {
                 
                 const positions = new Float32Array(count * 3);
                 const colors = new Uint8Array(count * 3);
+                const intensity = new Uint16Array(count);
+                const classification = new Uint8Array(count);
                 
                 for (let i = 0; i < count; i++) {
                     const offset = dataPtr + i * pointSize;
@@ -199,9 +207,15 @@ function createWASMWrapper(module) {
                     colors[i * 3] = this.HEAPU8[offset + 12];
                     colors[i * 3 + 1] = this.HEAPU8[offset + 13];
                     colors[i * 3 + 2] = this.HEAPU8[offset + 14];
+                    
+                    // Read intensity (uint16_t)
+                    intensity[i] = this.HEAPU16[(offset + 15) / 2];
+                    
+                    // Read classification (uint8_t)
+                    classification[i] = this.HEAPU8[offset + 17];
                 }
                 
-                return { positions, colors, count };
+                return { positions, colors, intensity, classification, count };
             } catch (error) {
                 throw new Error(`getPointData failed: ${error.message}`);
             }

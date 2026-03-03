@@ -21,6 +21,10 @@ export class UIController {
         this.boundsZEl = document.getElementById('boundsZ');
         this.pointFormatEl = document.getElementById('pointFormat');
         
+        // Color mode section
+        this.colorModeSection = document.getElementById('colorModeSection');
+        this.colorModeInputs = null;
+        
         // Statistics display
         this.fpsEl = document.getElementById('fps');
         this.visiblePointsEl = document.getElementById('visiblePoints');
@@ -31,6 +35,7 @@ export class UIController {
         
         // Callbacks
         this.onFileSelected = null;
+        this.onColorModeChanged = null;
     }
     
     /**
@@ -44,6 +49,16 @@ export class UIController {
                 this.updateFileName(file.name);
                 this.onFileSelected(file);
             }
+        });
+        
+        // Color mode change handler
+        this.colorModeInputs = document.querySelectorAll('input[name="colorMode"]');
+        this.colorModeInputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                if (e.target.checked && this.onColorModeChanged) {
+                    this.onColorModeChanged(e.target.value);
+                }
+            });
         });
         
         // Update file label when file is selected
@@ -110,6 +125,11 @@ export class UIController {
         if (!this.metadataSection) return;
         
         this.metadataSection.classList.remove('hidden');
+        
+        // Show color mode section when file is loaded
+        if (this.colorModeSection) {
+            this.colorModeSection.classList.remove('hidden');
+        }
         
         // Update point count
         if (this.pointCountEl) {

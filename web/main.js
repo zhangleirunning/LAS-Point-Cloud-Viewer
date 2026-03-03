@@ -39,6 +39,9 @@ async function initializeApp() {
         // Set up file selection callback
         uiController.onFileSelected = handleFileSelected;
         
+        // Set up color mode change callback
+        uiController.onColorModeChanged = handleColorModeChanged;
+        
         // Initialize viewer
         viewer = new PointCloudViewer(canvas);
         await viewer.initialize();
@@ -75,24 +78,19 @@ async function handleFileSelected(file) {
         
         // Show loading indicator
         uiController.showLoading('Loading point cloud...');
-        uiController.updateProgress(0);
+        uiController.updateProgress(10);
         
         // Hide any previous errors
         uiController.hideError();
         
-        // Simulate progress updates (actual progress will come from WASM)
-        const progressInterval = setInterval(() => {
-            // This will be replaced with actual progress from WASM
-        }, 100);
-        
-        // Load file
+        // Load file (this includes parsing)
+        uiController.updateProgress(30);
         const metadata = await viewer.loadFile(file);
         
-        // Clear progress interval
-        clearInterval(progressInterval);
+        // Progress is updated during spatial index building
         uiController.updateProgress(100);
         
-        // Hide loading indicator
+        // Hide loading indicator after a brief delay
         setTimeout(() => {
             uiController.hideLoading();
         }, 500);
@@ -109,6 +107,26 @@ async function handleFileSelected(file) {
 }
 
 /**
+ * Handle color mode change
+ * @param {string} mode - Selected color mode
+ */
+function handleColorModeChanged(mode) {
+    if (!viewer) {
+        return;
+    }
+    
+    try {
+        viewer.setColorMode(mode);
+        console.log(`Color mode changed to: ${mode}`);
+    } catch (error) {
+        console.error('Failed to change color mode:', error);
+        if (uiController) {
+            uiController.showError(`Failed to change color mode: ${error.message}`);
+        }
+    }
+}
+
+/**
  * Update statistics display
  */
 function updateStatsDisplay() {
@@ -116,8 +134,13 @@ function updateStatsDisplay() {
         return;
     }
     
-    const stats = viewer.getStats();
-    uiController.updateStats(stats);
+    try {
+        const stats = viewer.getStats();
+        uiController.updateStats(stats);
+    } catch (error) {
+        // Silently ignore errors in stats update
+        console.debug('Stats update error:', error);
+    }
 }
 
 /**
