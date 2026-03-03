@@ -44,10 +44,11 @@ if(EMSCRIPTEN)
     set(LINK_FLAGS "-s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\",\"_loadLASFile\",\"_getPointData\",\"_buildSpatialIndex\",\"_queryVisiblePoints\",\"_freeLASData\"]'")
     set(LINK_FLAGS "${LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
     
-    # Memory settings for large files
+    # Memory settings for large files (must be in link flags)
     set(LINK_FLAGS "${LINK_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
-    set(LINK_FLAGS "${LINK_FLAGS} -s INITIAL_MEMORY=268435456")  # 256MB in bytes
-    set(LINK_FLAGS "${LINK_FLAGS} -s MAXIMUM_MEMORY=2147483648")  # 2GB in bytes
+    set(LINK_FLAGS "${LINK_FLAGS} -s INITIAL_MEMORY=268435456")  # 256MB
+    set(LINK_FLAGS "${LINK_FLAGS} -s MAXIMUM_MEMORY=2147483648")  # 2GB
+    set(LINK_FLAGS "${LINK_FLAGS} -s TOTAL_STACK=16777216")  # 16MB stack
     
     # Performance optimizations for release builds
     if(CMAKE_BUILD_TYPE STREQUAL "Release")

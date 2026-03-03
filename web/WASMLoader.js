@@ -42,7 +42,9 @@ export async function loadWASM() {
 function createWASMWrapper(module) {
     // Helper to get typed array views of WASM memory
     const getHeapView = (TypedArray) => {
-        return new TypedArray(module.wasmMemory?.buffer || module.HEAP8?.buffer);
+        // Emscripten provides HEAP8.buffer which is the underlying ArrayBuffer
+        const buffer = module.HEAP8.buffer;
+        return new TypedArray(buffer);
     };
     
     return {
@@ -90,7 +92,19 @@ function createWASMWrapper(module) {
                 for (let offset = 0; offset < data.length; offset += chunkSize) {
                     const end = Math.min(offset + chunkSize, data.length);
                     const chunk = data.subarray(offset, end);
-                    this.HEAPU8.set(chunk, dataPtr + offset);
+                    const targetOffset = dataPtr + offset;
+                    
+                    // Get fresh heap view for each chunk (memory may have grown during malloc)
+                    // Access module.HEAPU8 directly to get the current view
+                    const heap = module.HEAPU8;
+                    
+                    // Verify we have enough space
+                    if (targetOffset + chunk.length > heap.length) {
+                        this.free(dataPtr);
+                        throw new Error(`Memory out of bounds: trying to write ${chunk.length} bytes at offset ${targetOffset}, but heap size is ${heap.length}. Allocated pointer: ${dataPtr}, file size: ${data.length}`);
+                    }
+                    
+                    heap.set(chunk, targetOffset);
                     
                     if (offset % (50 * 1024 * 1024) === 0) {
                         console.log(`Copied ${(offset / 1024 / 1024).toFixed(2)} MB / ${(data.length / 1024 / 1024).toFixed(2)} MB`);
